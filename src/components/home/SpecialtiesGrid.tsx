@@ -1,4 +1,4 @@
-// src/components/home/SpecialtiesGrid.tsx
+import { ReactNode } from "react";
 import {
   Heart,
   Baby,
@@ -13,7 +13,7 @@ interface Specialty {
   id: string;
   name: string;
   count: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   color: string;
   bgColor: string;
 }
@@ -30,17 +30,19 @@ const SPECIALTIES: Specialty[] = [
 export default function SpecialtiesGrid() {
   return (
     <div dir="rtl" className="w-full">
+      {/* سربرگ بخش دسته‌بندی‌ها */}
       <div className="flex justify-between items-end mb-8">
-        <div>
+        <div className="text-right">
           <span className="text-blue-600 text-xs font-black tracking-wider uppercase mb-1 block">دسته‌بندی‌ها</span>
           <h2 className="text-2xl md:text-3xl font-black text-slate-800">تخصص‌های پرمخاطب</h2>
         </div>
         <button className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-bold text-sm transition-all group cursor-pointer">
-          مشاهده همه تخصص‌ها
+          <span>مشاهده همه تخصص‌ها</span>
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
         </button>
       </div>
 
+      {/* گرید دسته‌بندی‌ها */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
         {SPECIALTIES.map((spec) => (
           <div

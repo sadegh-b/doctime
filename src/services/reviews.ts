@@ -1,31 +1,32 @@
-const API = "http://localhost:3001/reviews"
+// src/services/reviews.ts
 
-export type Review = {
-  id?: number
+import api from "./api";
+import type { Review } from "../types/review";
+
+export type CreateReviewPayload = Omit<Review, "id">;
+
+/**
+ * دریافت نظرات مربوط به یک پزشک خاص
+ */
+export async function getDoctorReviews(
   doctorId: number
-  patientName: string
-  rating: number
-  comment: string
-}
-
-export async function getDoctorReviews(doctorId: number) {
-
-  const res = await fetch(`${API}?doctorId=${doctorId}`)
-
-  return res.json()
-
-}
-
-export async function addReview(review: Review) {
-
-  const res = await fetch(API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
+): Promise<Review[]> {
+  const response = await api.get<Review[]>("/reviews/", {
+    params: {
+      doctorId,
     },
-    body: JSON.stringify(review)
-  })
+  });
 
-  return res.json()
+  return response.data;
+}
 
+/**
+ * ثبت یک نظر جدید برای پزشک
+ */
+export async function addReview(
+  review: CreateReviewPayload
+): Promise<Review> {
+  const response = await api.post<Review>("/reviews/", review);
+
+  return response.data;
 }

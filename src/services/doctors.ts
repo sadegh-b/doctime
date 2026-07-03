@@ -1,40 +1,40 @@
-export type Doctor = {
-  id: number
-  name: string
-  specialty: string
-  city: string
-  rating: number
-  image: string
-  nextAvailable: string
+// src/services/doctors.ts
+
+import api from "./api";
+import type { Doctor } from "../data/mockData";
+
+/* -----------------------------
+   Doctors
+------------------------------*/
+
+export async function getDoctors(): Promise<Doctor[]> {
+  const response = await api.get("/doctors/");
+  return response.data;
 }
 
-const BASE_URL = "http://localhost:3001/doctors"
+export async function getDoctorById(id: number): Promise<Doctor> {
+  const response = await api.get(`/doctors/${id}`);
+  return response.data;
+}
 
-export async function searchDoctors(params: {
-  name?: string
-  specialty?: string
-  city?: string
-}) {
+/* -----------------------------
+   Appointments
+------------------------------*/
 
-  const query = new URLSearchParams()
+export interface CreateAppointmentInput {
+  availability_id: number;
+}
 
-  if (params.name) {
-    query.append("name_like", params.name)
-  }
+export async function createAppointment(
+  data: CreateAppointmentInput
+) {
+  const response = await api.post("/appointments", data);
 
-  if (params.specialty) {
-    query.append("specialty_like", params.specialty)
-  }
+  return response.data;
+}
 
-  if (params.city) {
-    query.append("city_like", params.city)
-  }
+export async function getPatientAppointments() {
+  const response = await api.get("/appointments");
 
-  const response = await fetch(`${BASE_URL}?${query.toString()}`)
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch doctors")
-  }
-
-  return response.json()
+  return response.data;
 }

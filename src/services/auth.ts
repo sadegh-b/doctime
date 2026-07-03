@@ -1,36 +1,58 @@
-const API = "http://localhost:3001/users"
+import api from "./api";
 
-export async function login(email: string, password: string) {
-
-  const res = await fetch(
-    `${API}?email=${email}&password=${password}`
-  )
-
-  const data = await res.json()
-
-  if (data.length === 0) {
-    throw new Error("Invalid credentials")
-  }
-
-  return data[0]
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
 }
 
-export async function register(user: {
-  name: string
-  email: string
+export async function login(
+  phone: string,
   password: string
+) {
+  const formData = new URLSearchParams();
+
+  // FastAPI OAuth expects username
+  formData.append("username", phone);
+
+  formData.append("password", password);
+
+  const response = await api.post<LoginResponse>(
+    "/auth/login",
+    formData,
+    {
+      headers: {
+        "Content-Type":
+          "application/x-www-form-urlencoded",
+      },
+    }
+  );
+
+  const token = response.data.access_token;
+
+  if (!token) {
+    throw new Error("No access token returned");
+  }
+
+  localStorage.setItem("access_token", token);
+
+  return response.data;
+}
+
+export async function register(data: {
+  name: string;
+  email?: string;
+  phone: string;
+  password: string;
+  role: "patient" | "doctor";
 }) {
+  const response = await api.post(
+    "/auth/register",
+    data
+  );
 
-  const res = await fetch(API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      ...user,
-      role: "patient"
-    })
-  })
+  return response.data;
+}
 
-  return res.json()
+export function logout() {
+  localStorage.removeItem("access_token");
 }

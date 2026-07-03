@@ -1,241 +1,141 @@
-import { useState, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
-
-import DoctorCard from "../components/DoctorCard"
-import DoctorCardSkeleton from "../components/skeletons/DoctorCardSkeleton"
-
-import { useDebounce } from "../hooks/useDebounce"
-import { useDoctorsSearch } from "../hooks/useDoctorsSearch"
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams, Link } from "react-router-dom";
+import { searchDoctors } from "../services/searchDoctors";
+import type { SearchParams } from "../services/searchDoctors";
+import DoctorCardSkeleton from "../components/DoctorCardSkeleton";
 
 export default function SearchResults() {
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [searchParams, setSearchParams] = useSearchParams()
+  const name = searchParams.get("name") ?? "";
+  const specialty = searchParams.get("specialty") ?? "";
+  const city = searchParams.get("city") ?? "";
+  const page = Number(searchParams.get("page") ?? "1");
+  const sort = searchParams.get("sort") ?? "";
 
-  const [name, setName] = useState(searchParams.get("name") || "")
-  const [city, setCity] = useState(searchParams.get("city") || "")
-  const [specialty, setSpecialty] = useState(searchParams.get("specialty") || "")
-  const [sort, setSort] = useState(searchParams.get("sort") || "")
-
-  const [page, setPage] = useState(1)
-
-  const limit = 6
-
-  const debouncedName = useDebounce(name, 500)
-
-  useEffect(() => {
-
-    setSearchParams({
-      name: debouncedName,
-      city,
-      specialty,
-      sort
-    })
-
-  }, [debouncedName, city, specialty, sort])
-
-  useEffect(() => {
-
-    setPage(1)
-
-  }, [debouncedName, city, specialty, sort])
-
-
-  const {
-
-    data,
-    isLoading,
-    isError,
-    error,
-
-  } = useDoctorsSearch({
-
-    name: debouncedName,
-    city,
+  const queryParams: SearchParams = {
+    name,
     specialty,
-    sort,
-    page,
-    limit
+    city,
+    _page: page,
+    _limit: 6,
+  };
 
-  })
-
-
-  const doctors = data?.data || []
-
-  const total = data?.total || 0
-
-  const totalPages = Math.ceil(total / limit)
-
-
-  if (isError) {
-
-    return (
-
-      <div className="min-h-screen flex items-center justify-center">
-
-        <div className="text-center">
-
-          <h2 className="text-2xl font-bold text-red-500">
-
-            خطا در دریافت پزشکان
-
-          </h2>
-
-          <p className="text-gray-500 mt-2">
-
-            {(error as Error).message}
-
-          </p>
-
-        </div>
-
-      </div>
-
-    )
-
+  if (sort) {
+    queryParams._sort = sort;
+    queryParams._order = "desc";
   }
 
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["searchDoctors", queryParams],
+    queryFn: () => searchDoctors(queryParams),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("page", String(newPage));
+    setSearchParams(params);
+  };
+
+  const totalPages = data ? Math.ceil(data.totalCount / 6) : 1;
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50" dir="rtl">
+        <div className="bg-white p-8 rounded-2xl shadow-sm text-center">
+          <p className="text-red-500 font-bold mb-2">خطا در دریافت اطلاعات</p>
+          <p className="text-slate-500 text-sm">
+            {error instanceof Error ? error.message : "خطایی رخ داد."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-
-    <div className="min-h-screen bg-slate-100 py-10">
-
+    <div className="min-h-screen bg-slate-50 py-12" dir="rtl">
       <div className="max-w-6xl mx-auto px-4">
-
-        <h1 className="text-3xl font-black mb-8">
-
-          جستجوی پزشکان
-
+        <h1 className="text-2xl font-bold text-slate-800 mb-6">
+          نتایج جستجو
         </h1>
 
-
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-
-          <input
-            placeholder="نام پزشک"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="border rounded-xl px-4 py-3"
-          />
-
-          <input
-            placeholder="شهر"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="border rounded-xl px-4 py-3"
-          />
-
-          <input
-            placeholder="تخصص"
-            value={specialty}
-            onChange={(e) => setSpecialty(e.target.value)}
-            className="border rounded-xl px-4 py-3"
-          />
-
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="border rounded-xl px-4 py-3"
-          >
-
-            <option value="">مرتب سازی</option>
-            <option value="rate">بهترین امتیاز</option>
-            <option value="reviews">بیشترین نظر</option>
-
-          </select>
-
-        </div>
-
-
-        {isLoading && (
-
-          <div className="grid md:grid-cols-2 gap-6">
-
-            {Array.from({ length: 6 }).map((_, index) => (
-
-              <DoctorCardSkeleton key={index} />
-
+        {isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <DoctorCardSkeleton key={i} />
             ))}
-
           </div>
-
-        )}
-
-
-        {!isLoading && doctors.length > 0 && (
-
-          <div className="grid md:grid-cols-2 gap-6">
-
-            {doctors.map((doctor) => (
-
-              <DoctorCard
-                key={doctor.id}
-                doctor={doctor}
-              />
-
-            ))}
-
+        ) : !data || data.data.length === 0 ? (
+          <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+            <p className="text-slate-500">
+              پزشکی با مشخصات جستجو شده یافت نشد.
+            </p>
           </div>
-
-        )}
-
-
-        {!isLoading && doctors.length === 0 && (
-
-          <div className="text-center text-gray-500 mt-20">
-
-            پزشکی با این مشخصات پیدا نشد
-
-          </div>
-
-        )}
-
-
-        {!isLoading && totalPages > 1 && (
-
-          <div className="flex justify-center gap-2 mt-10">
-
-            {Array.from({ length: totalPages }).map((_, index) => {
-
-              const pageNumber = index + 1
-
-              return (
-
-                <button
-                  key={pageNumber}
-                  onClick={() => {
-
-                    setPage(pageNumber)
-
-                    window.scrollTo({
-                      top: 0,
-                      behavior: "smooth"
-                    })
-
-                  }}
-                  className={`px-4 py-2 rounded-lg border
-
-                  ${page === pageNumber
-                      ? "bg-blue-600 text-white"
-                      : "bg-white"
-                    }`}
+        ) : (
+          <>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {data.data.map((doctor) => (
+                <div
+                  key={doctor.id}
+                  className="bg-white rounded-2xl shadow-sm p-6 flex flex-col justify-between"
                 >
+                  <div>
+                    <div className="flex items-center gap-4 mb-4">
+                      <img
+                        src={doctor.image}
+                        alt={doctor.name}
+                        className="w-16 h-16 rounded-full object-cover"
+                      />
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-800">
+                          {doctor.name}
+                        </h2>
+                        <p className="text-blue-600 text-sm font-semibold">
+                          {doctor.specialty}
+                        </p>
+                      </div>
+                    </div>
 
-                  {pageNumber}
+                    <div className="space-y-2 text-sm text-slate-600 pt-2 border-t border-slate-100">
+                      <p>📍 {doctor.city}</p>
+                      <p>⭐ {doctor.rating}</p>
+                      <p>⏰ اولین نوبت: {doctor.nextAvailable}</p>
+                    </div>
+                  </div>
 
-                </button>
+                  <Link
+                    to={`/doctor/${doctor.id}`}
+                    className="mt-6 block text-center bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-medium transition"
+                  >
+                    دریافت نوبت
+                  </Link>
+                </div>
+              ))}
+            </div>
 
-              )
-
-            })}
-
-          </div>
-
+            {totalPages > 1 && (
+              <div className="flex justify-center gap-2 mt-10">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (p) => (
+                    <button
+                      key={p}
+                      onClick={() => handlePageChange(p)}
+                      className={`w-10 h-10 rounded-xl font-medium transition ${
+                        p === page
+                          ? "bg-blue-600 text-white shadow-md"
+                          : "bg-white text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </>
         )}
-
       </div>
-
     </div>
-
-  )
-
+  );
 }

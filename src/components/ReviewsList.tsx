@@ -1,45 +1,45 @@
-import { Review } from "../services/reviews"
+import { useReviews } from "../hooks/useReviews";
 
-type Props = {
-  reviews: Review[]
+interface ReviewsListProps {
+  doctorId: number;
 }
 
-export default function ReviewsList({ reviews }: Props) {
+export default function ReviewsList({ doctorId }: ReviewsListProps) {
+  const { data: reviews, isLoading, isError } = useReviews(doctorId);
 
-  if (reviews.length === 0) {
-    return <p>هنوز نظری ثبت نشده</p>
+  if (isLoading) {
+    return <p>Loading reviews...</p>;
+  }
+
+  if (isError) {
+    return <p>Failed to load reviews</p>;
+  }
+
+  if (!reviews || reviews.length === 0) {
+    return <p>No reviews yet</p>;
   }
 
   return (
+    <div>
+      <h3>Patient Reviews</h3>
 
-    <div className="space-y-4">
-
-      {reviews.map((r) => (
-
+      {reviews.map((review) => (
         <div
-          key={r.id}
-          className="border rounded-xl p-4"
+          key={review.id}
+          style={{
+            border: "1px solid #ddd",
+            padding: "10px",
+            marginBottom: "10px",
+            borderRadius: "8px",
+          }}
         >
+          <strong>{review.patientName}</strong>
 
-          <div className="flex justify-between">
+          <p>Rating: {review.rating} ⭐</p>
 
-            <strong>{r.patientName}</strong>
-
-            <span>
-              {"⭐".repeat(r.rating)}
-            </span>
-
-          </div>
-
-          <p className="text-gray-600 mt-2">
-            {r.comment}
-          </p>
-
+          <p>{review.comment}</p>
         </div>
-
       ))}
-
     </div>
-
-  )
+  );
 }

@@ -1,27 +1,18 @@
-const API = "http://localhost:3001"
+import type { Appointment } from "../types/appointment";
+import type { DoctorScheduleItem } from "../hooks/useDoctorSchedule";
 
-export async function getDoctorSchedule(doctorId: number) {
-
-  const res = await fetch(
-    `${API}/schedules?doctorId=${doctorId}`
-  )
-
-  if (!res.ok) {
-    throw new Error("Failed to load schedule")
-  }
-
-  return res.json()
+// دریافت برنامه زمانی پزشک بر اساس ID
+export async function getDoctorSchedule(doctorId: number): Promise<DoctorScheduleItem[]> {
+  const response = await api.get<DoctorScheduleItem[]>("/schedules", {
+    params: { doctorId },
+  });
+  return response.data;
 }
 
-export async function getAppointments(doctorId: number) {
-
-  const res = await fetch(
-    `${API}/appointments?doctorId=${doctorId}`
-  )
-
-  if (!res.ok) {
-    throw new Error("Failed to load appointments")
-  }
-
-  return res.json()
+// دریافت نوبت‌های رزرو شده پزشک با نام مشخص برای جلوگیری از تداخل نام
+export async function getAppointmentsByDoctor(doctorId: number): Promise<Appointment[]> {
+  const response = await api.get<Appointment[]>("/appointments", {
+    params: { doctorId },
+  });
+  return response.data;
 }

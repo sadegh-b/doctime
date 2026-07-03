@@ -1,69 +1,71 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { login } from "../services/auth"
-import { useAuth } from "../context/AuthContext"
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { login } from "../services/auth";
 
 export default function Login() {
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const navigate = useNavigate();
 
-  const navigate = useNavigate()
-  const { loginUser } = useAuth()
-
-  async function handleLogin() {
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
 
     try {
-
-      const user = await login(email, password)
-
-      loginUser(user)
-
-      navigate("/")
-
-    } catch {
-
-      alert("ایمیل یا رمز اشتباه است")
-
+      setLoading(true);
+      await login(phone, password);
+      navigate("/");
+    } catch (error) {
+      alert("شماره موبایل یا رمز عبور اشتباه است.");
+    } finally {
+      setLoading(false);
     }
-
   }
 
   return (
-
-    <div className="flex justify-center mt-20">
-
-      <div className="bg-white p-10 rounded-xl shadow w-96">
-
-        <h1 className="text-xl font-bold mb-6">
+    <div className="flex justify-center mt-20" dir="rtl">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-10 rounded-xl shadow w-96"
+      >
+        <h1 className="text-xl font-bold mb-6 text-center">
           ورود
         </h1>
 
         <input
-          placeholder="Email"
-          className="border p-2 w-full mb-4"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="شماره موبایل"
+          className="border p-2 w-full mb-4 rounded"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          required
         />
 
         <input
-          placeholder="Password"
           type="password"
-          className="border p-2 w-full mb-4"
+          placeholder="رمز عبور"
+          className="border p-2 w-full mb-4 rounded"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
         <button
-          onClick={handleLogin}
-          className="bg-blue-600 text-white w-full py-2 rounded"
+          type="submit"
+          disabled={loading}
+          className="bg-blue-600 text-white w-full py-2 rounded disabled:opacity-60"
         >
-          ورود
+          {loading ? "در حال ورود..." : "ورود"}
         </button>
 
-      </div>
-
+        <p className="text-center mt-6 text-sm">
+          حساب ندارید؟{" "}
+          <Link to="/register" className="text-blue-600 font-semibold">
+            ثبت نام
+          </Link>
+        </p>
+      </form>
     </div>
-
-  )
+  );
 }

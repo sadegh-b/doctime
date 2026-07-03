@@ -1,53 +1,58 @@
-import { useState } from "react"
-import { addReview } from "../services/reviews"
+import { useState } from "react";
+import { useAddReview } from "../hooks/useReviews";
 
-type Props = {
-  doctorId: number
-  onAdded: () => void
+interface Props {
+  doctorId: number;
 }
 
-export default function AddReviewForm({ doctorId, onAdded }: Props) {
+export default function AddReviewForm({ doctorId }: Props) {
+  const [patientName, setPatientName] = useState("");
+  const [comment, setComment] = useState("");
+  const [rating, setRating] = useState(5);
 
-  const [patientName, setPatientName] = useState("")
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState("")
+  const mutation = useAddReview();
 
-  async function handleSubmit() {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-    await addReview({
+    mutation.mutate({
       doctorId,
       patientName,
+      comment,
       rating,
-      comment
-    })
+    });
 
-    setPatientName("")
-    setComment("")
-    setRating(5)
-
-    onAdded()
-
-  }
+    setPatientName("");
+    setComment("");
+    setRating(5);
+  };
 
   return (
-
-    <div className="mt-6 border p-4 rounded-xl">
-
-      <h3 className="font-bold mb-4">
-        ثبت نظر
-      </h3>
+    <form onSubmit={handleSubmit}>
+      <h3>Add Review</h3>
 
       <input
-        placeholder="نام شما"
+        type="text"
+        placeholder="Your name"
         value={patientName}
         onChange={(e) => setPatientName(e.target.value)}
-        className="border p-2 w-full mb-3"
+        required
       />
+
+      <br />
+
+      <textarea
+        placeholder="Write your comment"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        required
+      />
+
+      <br />
 
       <select
         value={rating}
         onChange={(e) => setRating(Number(e.target.value))}
-        className="border p-2 w-full mb-3"
       >
         <option value={5}>5 ⭐</option>
         <option value={4}>4 ⭐</option>
@@ -56,21 +61,11 @@ export default function AddReviewForm({ doctorId, onAdded }: Props) {
         <option value={1}>1 ⭐</option>
       </select>
 
-      <textarea
-        placeholder="نظر شما"
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        className="border p-2 w-full mb-3"
-      />
+      <br />
 
-      <button
-        onClick={handleSubmit}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        ارسال نظر
+      <button type="submit" disabled={mutation.isPending}>
+        {mutation.isPending ? "Submitting..." : "Submit Review"}
       </button>
-
-    </div>
-
-  )
+    </form>
+  );
 }

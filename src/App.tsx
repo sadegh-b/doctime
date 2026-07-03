@@ -1,91 +1,84 @@
-﻿import { BrowserRouter, Routes, Route } from "react-router-dom"
+// مسیر: src/App.tsx
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
 
-import MainLayout from "./layouts/MainLayout"
+import Header from "./components/ui/Header";
+import Footer from "./components/ui/Footer";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-import Home from "./pages/Home"
-import SearchResults from "./pages/SearchResults"
-import Specialties from "./pages/Specialties"
-import Centers from "./pages/Centers"
-import Consult from "./pages/Consult"
-import Mag from "./pages/Mag"
-import Doctors from "./pages/Doctors"
-import DoctorProfilePage from "./pages/DoctorProfilePage"
-import MyAppointments from "./pages/MyAppointments"
-import DoctorDashboard from "./pages/dashboard/DoctorDashboard"
-import DoctorAppointments from "./pages/dashboard/DoctorAppointments"
-import DoctorSchedule from "./pages/dashboard/DoctorSchedule"
-import ProtectedRoute from "./components/ProtectedRoute"
+const Home = lazy(() => import("./pages/Home"));
+const Doctors = lazy(() => import("./pages/Doctors"));
+const SearchResults = lazy(() => import("./pages/SearchResults"));
+const DoctorProfilePage = lazy(() => import("./pages/DoctorProfilePage"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const MyAppointments = lazy(() => import("./pages/MyAppointments"));
 
-function App() {
+const DoctorDashboard = lazy(() => import("./pages/dashboard/DoctorDashboard"));
+const DoctorAppointments = lazy(() => import("./pages/dashboard/DoctorAppointments"));
+
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+
+export default function App() {
   return (
-    <BrowserRouter>
+    <div
+      className="flex flex-col min-h-screen bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100"
+      dir="rtl"
+    >
+      <Header />
 
-      <Routes>
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <Suspense
+          fallback={
+            <div className="flex flex-col items-center justify-center min-h-[300px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4" />
+              <div className="text-gray-500 dark:text-zinc-400 font-medium">
+                در حال بارگذاری صفحات...
+              </div>
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/doctors" element={<Doctors />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/doctor/:id" element={<DoctorProfilePage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-        <Route element={<MainLayout />}>
+            <Route
+              path="/my-appointments"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <MyAppointments />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/"
-            element={<Home />}
-          />
+            <Route
+              path="/doctor-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <DoctorDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/search"
-            element={<SearchResults />}
-          />
+            <Route
+              path="/doctor-appointments"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <DoctorAppointments />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/specialties"
-            element={<Specialties />}
-          />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
+      </main>
 
-          <Route
-            path="/centers"
-            element={<Centers />}
-          />
-
-          <Route
-            path="/consult"
-            element={<Consult />}
-          />
-
-          <Route
-            path="/mag"
-            element={<Mag />}
-          />
-
-          <Route
-            path="/doctors"
-            element={<Doctors />}
-          />
-
-          <Route
-            path="/doctors/:id"
-            element={<DoctorProfilePage />}
-          />
-
-          <Route
-            path="/appointments"
-            element={<MyAppointments />}
-          />
-
-        </Route>
-
-      </Routes>
-
-    </BrowserRouter>
-  )
+      <Footer />
+    </div>
+  );
 }
-<Route path="/dashboard" element={<DoctorDashboard />} />
-<Route path="/dashboard/appointments" element={<DoctorAppointments />} />
-<Route path="/dashboard/schedule" element={<DoctorSchedule />} />
-<Route
- path="/dashboard"
- element={
-  <ProtectedRoute>
-    <DoctorDashboard />
-  </ProtectedRoute>
- }
-/>
-
-export default App
