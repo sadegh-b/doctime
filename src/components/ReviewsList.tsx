@@ -1,3 +1,5 @@
+// src/components/ReviewsList.tsx
+
 import { useReviews } from "../hooks/useReviews";
 
 interface ReviewsListProps {
@@ -5,39 +7,34 @@ interface ReviewsListProps {
 }
 
 export default function ReviewsList({ doctorId }: ReviewsListProps) {
-  const { data: reviews, isLoading, isError } = useReviews(doctorId);
+  const { data: reviews = [], isLoading, isError } = useReviews(doctorId);
 
   if (isLoading) {
-    return <p>Loading reviews...</p>;
+    return <p className="text-sm text-slate-500">در حال بارگذاری نظرات...</p>;
   }
 
   if (isError) {
-    return <p>Failed to load reviews</p>;
+    return <p className="text-sm text-red-500">خطا در دریافت نظرات</p>;
   }
 
-  if (!reviews || reviews.length === 0) {
-    return <p>No reviews yet</p>;
+  if (reviews.length === 0) {
+    return <p className="text-sm text-slate-500">هنوز نظری ثبت نشده است.</p>;
   }
 
   return (
-    <div>
-      <h3>Patient Reviews</h3>
-
+    <div className="space-y-4">
       {reviews.map((review) => (
         <div
           key={review.id}
-          style={{
-            border: "1px solid #ddd",
-            padding: "10px",
-            marginBottom: "10px",
-            borderRadius: "8px",
-          }}
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
         >
-          <strong>{review.patientName}</strong>
-
-          <p>Rating: {review.rating} ⭐</p>
-
-          <p>{review.comment}</p>
+          <div className="mb-2 flex items-center justify-between gap-4">
+            <strong className="text-slate-800">{review.patient_name}</strong>
+            <span className="font-medium text-amber-500">
+              {review.rating} ⭐
+            </span>
+          </div>
+          <p className="text-sm leading-7 text-slate-600">{review.comment}</p>
         </div>
       ))}
     </div>

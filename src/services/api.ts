@@ -1,29 +1,44 @@
-// src/services/api.ts
 import axios from "axios";
+import type { InternalAxiosRequestConfig, AxiosError, AxiosResponse } from "axios";
 
-export const api = axios.create({
-  baseURL: "http://localhost:8000",
+const BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string) || "http://127.0.0.1:8000/api";
+
+const api = axios.create({
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+function getStoredToken(): string | null {
+  return localStorage.getItem("token") || localStorage.getItem("access_token");
+}
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+api.interceptors.request.use(
+  (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+    const token = getStoredToken();
 
-  return config;
-});
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error: AxiosError) => Promise.reject(error)
+);
 
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response: AxiosResponse): AxiosResponse => response,
+  (error: AxiosError) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      localStorage.removeItem("access_token");
+
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
 
     return Promise.reject(error);

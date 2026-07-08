@@ -1,8 +1,7 @@
 export interface Review {
   id: number;
-  doctorId: number;
-  patientName: string;
-  rating: number;
+  doctor_id: number;
+  patient_name: string;
   comment: string;
-  date?: string; // اختیاری در صورتی که سرور تاریخ ثبت نظر را برگرداند
+  rating: number;
 }

@@ -1,5 +1,4 @@
-// src/services/searchDoctors.ts
-
+import api from "./api";
 import type { Doctor } from "./doctors";
 
 export interface SearchParams {
@@ -12,22 +11,23 @@ export interface SearchParams {
   _order?: "asc" | "desc";
 }
 
-export interface SearchResponse {
+export interface SearchDoctorsResponse {
   data: Doctor[];
   totalCount: number;
 }
 
 export async function searchDoctors(
   params: SearchParams
-): Promise<SearchResponse> {
-  const response = await api.get<Doctor[]>("/doctors", {
-    params,
-  });
+): Promise<SearchDoctorsResponse> {
+  const response = await api.get("/doctors/", { params });
+
+  const totalCountHeader = response.headers["x-total-count"];
+  const totalCount = totalCountHeader
+    ? Number(totalCountHeader)
+    : response.data.length;
 
   return {
     data: response.data,
-    totalCount: Number(
-      response.headers["x-total-count"] ?? response.data.length
-    ),
+    totalCount,
   };
 }

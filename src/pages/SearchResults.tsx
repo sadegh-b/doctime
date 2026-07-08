@@ -4,6 +4,9 @@ import { searchDoctors } from "../services/searchDoctors";
 import type { SearchParams } from "../services/searchDoctors";
 import DoctorCardSkeleton from "../components/DoctorCardSkeleton";
 
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300";
+
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -42,10 +45,13 @@ export default function SearchResults() {
 
   if (isError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50" dir="rtl">
-        <div className="bg-white p-8 rounded-2xl shadow-sm text-center">
-          <p className="text-red-500 font-bold mb-2">خطا در دریافت اطلاعات</p>
-          <p className="text-slate-500 text-sm">
+      <div
+        className="min-h-screen flex items-center justify-center bg-slate-50"
+        dir="rtl"
+      >
+        <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+          <p className="mb-2 font-bold text-red-500">خطا در دریافت اطلاعات</p>
+          <p className="text-sm text-slate-500">
             {error instanceof Error ? error.message : "خطایی رخ داد."}
           </p>
         </div>
@@ -55,10 +61,8 @@ export default function SearchResults() {
 
   return (
     <div className="min-h-screen bg-slate-50 py-12" dir="rtl">
-      <div className="max-w-6xl mx-auto px-4">
-        <h1 className="text-2xl font-bold text-slate-800 mb-6">
-          نتایج جستجو
-        </h1>
+      <div className="mx-auto max-w-6xl px-4">
+        <h1 className="mb-6 text-2xl font-bold text-slate-800">نتایج جستجو</h1>
 
         {isLoading ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -67,7 +71,7 @@ export default function SearchResults() {
             ))}
           </div>
         ) : !data || data.data.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+          <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
             <p className="text-slate-500">
               پزشکی با مشخصات جستجو شده یافت نشد.
             </p>
@@ -78,35 +82,38 @@ export default function SearchResults() {
               {data.data.map((doctor) => (
                 <div
                   key={doctor.id}
-                  className="bg-white rounded-2xl shadow-sm p-6 flex flex-col justify-between"
+                  className="flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm"
                 >
                   <div>
-                    <div className="flex items-center gap-4 mb-4">
+                    <div className="mb-4 flex items-center gap-4">
                       <img
-                        src={doctor.image}
+                        src={doctor.image || FALLBACK_IMAGE}
                         alt={doctor.name}
-                        className="w-16 h-16 rounded-full object-cover"
+                        className="h-16 w-16 rounded-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = FALLBACK_IMAGE;
+                        }}
                       />
                       <div>
                         <h2 className="text-lg font-bold text-slate-800">
                           {doctor.name}
                         </h2>
-                        <p className="text-blue-600 text-sm font-semibold">
+                        <p className="text-sm font-semibold text-blue-600">
                           {doctor.specialty}
                         </p>
                       </div>
                     </div>
 
-                    <div className="space-y-2 text-sm text-slate-600 pt-2 border-t border-slate-100">
-                      <p>📍 {doctor.city}</p>
-                      <p>⭐ {doctor.rating}</p>
-                      <p>⏰ اولین نوبت: {doctor.nextAvailable}</p>
+                    <div className="space-y-2 border-t border-slate-100 pt-2 text-sm text-slate-600">
+                      <p>📍 {doctor.city || "—"}</p>
+                      <p>⭐ {doctor.rating ?? 0}</p>
+                      <p>⏰ اولین نوبت: {doctor.nextAvailable || "ثبت نشده"}</p>
                     </div>
                   </div>
 
                   <Link
                     to={`/doctor/${doctor.id}`}
-                    className="mt-6 block text-center bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-medium transition"
+                    className="mt-6 block rounded-xl bg-blue-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-blue-700"
                   >
                     دریافت نوبت
                   </Link>
@@ -115,13 +122,13 @@ export default function SearchResults() {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-10">
+              <div className="mt-10 flex justify-center gap-2">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                   (p) => (
                     <button
                       key={p}
                       onClick={() => handlePageChange(p)}
-                      className={`w-10 h-10 rounded-xl font-medium transition ${
+                      className={`h-10 w-10 rounded-xl font-medium transition ${
                         p === page
                           ? "bg-blue-600 text-white shadow-md"
                           : "bg-white text-slate-600 hover:bg-slate-100"
