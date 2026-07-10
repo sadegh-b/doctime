@@ -1,3 +1,4 @@
+// src/pages/DoctorProfilePage.tsx
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -18,7 +19,7 @@ import {
 import { getDoctorById } from "../services/doctors";
 import {
   getDoctorAvailability,
-  type AvailabilitySlot,
+  type AvailabilityItem,
 } from "../services/availability";
 import { createAppointment } from "../services/appointments";
 
@@ -62,25 +63,38 @@ interface ApiErrorResponse {
   message?: string;
 }
 
+type DoctorProfile = {
+  id: number;
+  name: string;
+  specialty: string;
+  city?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  image?: string | null;
+  about?: string | null;
+  visit_fee?: number | null;
+  experience?: string | null;
+  patients?: number | null;
+};
+
 export default function DoctorProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const doctorId = Number(id);
+  const isValidDoctorId = Number.isFinite(doctorId) && doctorId > 0;
 
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const isValidDoctorId = Number.isFinite(doctorId) && doctorId > 0;
 
   const {
     data: doctor,
     isLoading: doctorLoading,
     isError: doctorError,
     error: doctorQueryError,
-  } = useQuery({
+  } = useQuery<DoctorProfile>({
     queryKey: ["doctor", doctorId],
     queryFn: () => getDoctorById(doctorId),
     enabled: isValidDoctorId,
@@ -92,17 +106,23 @@ export default function DoctorProfilePage() {
     isLoading: availabilityLoading,
     isError: availabilityError,
     error: availabilityQueryError,
-  } = useQuery<AvailabilitySlot[]>({
+  } = useQuery<AvailabilityItem[]>({
     queryKey: ["availability", doctorId],
     queryFn: () => getDoctorAvailability(doctorId),
     enabled: isValidDoctorId,
     retry: false,
   });
 
+  // سازگار با availability.ts فعلی:
+  // اگر slot رزرو شده باشد حذف می‌شود
+  // اگر status داشته باشد فقط available قبول می‌شود
+  // اگر status نداشته باشد ولی is_booked=false باشد آزاد حساب می‌شود
   const freeSlots = useMemo(() => {
-    return availabilitySlots.filter(
-      (slot) => slot.is_available && !slot.is_booked
-    );
+    return availabilitySlots.filter((slot) => {
+      if (slot.is_booked) return false;
+      if (slot.status) return slot.status === "available";
+      return true;
+    });
   }, [availabilitySlots]);
 
   const bookingMutation = useMutation({
@@ -228,6 +248,7 @@ export default function DoctorProfilePage() {
   return (
     <div className="min-h-screen bg-slate-50 py-8" dir="rtl">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 lg:px-6">
+        {/* Hero */}
         <section className="overflow-hidden rounded-[28px] border border-cyan-100 bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 text-white shadow-[0_25px_80px_rgba(8,145,178,0.18)]">
           <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
             <div className="flex flex-col gap-5">
@@ -332,6 +353,7 @@ export default function DoctorProfilePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          {/* Booking */}
           <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -440,6 +462,7 @@ export default function DoctorProfilePage() {
             </form>
           </section>
 
+          {/* Doctor Info + Reviews */}
           <section className="space-y-6">
             <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <h2 className="text-lg font-black text-slate-900">
@@ -476,9 +499,7 @@ export default function DoctorProfilePage() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="text-xs font-bold text-slate-500">
-                    تجربه
-                  </div>
+                  <div className="text-xs font-bold text-slate-500">تجربه</div>
                   <div className="mt-2 text-sm font-black text-slate-900">
                     {doctor.experience || "ثبت نشده"}
                   </div>

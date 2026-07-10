@@ -9,6 +9,7 @@ export type AvailabilityItem = {
   date: string;
   start_time: string;
   end_time: string;
+  is_available: boolean;
   is_booked: boolean;
   status?: AvailabilityStatus;
   notes?: string | null;
@@ -27,6 +28,7 @@ export type UpdateAvailabilityPayload = {
   start_time?: string;
   end_time?: string;
   notes?: string;
+  is_available?: boolean;
   is_booked?: boolean;
   status?: AvailabilityStatus;
 };
@@ -45,6 +47,7 @@ type AvailabilityListResponse =
   | AvailabilityItem[]
   | {
       success?: boolean;
+      count?: number;
       items?: any[];
       data?: any[];
       results?: any[];
@@ -59,22 +62,32 @@ type AvailabilitySingleResponse =
     };
 
 function normalizeAvailability(item: any): AvailabilityItem {
+  const isBooked = Boolean(item?.is_booked ?? false);
+
+  const isAvailable =
+    typeof item?.is_available === "boolean"
+      ? item.is_available
+      : !isBooked;
+
   return {
     id: Number(item?.id ?? 0),
     doctor_id: Number(item?.doctor_id ?? 0),
     date: String(item?.date ?? ""),
     start_time: String(item?.start_time ?? ""),
     end_time: String(item?.end_time ?? ""),
-    is_booked: Boolean(item?.is_booked ?? false),
+    is_available: isAvailable,
+    is_booked: isBooked,
     status:
       item?.status ??
-      (item?.is_booked ? "booked" : "available"),
+      (isBooked ? "booked" : isAvailable ? "available" : "blocked"),
     notes: item?.notes ?? null,
     created_at: item?.created_at ?? null,
   };
 }
 
-function normalizeAvailabilityList(data: AvailabilityListResponse): AvailabilityItem[] {
+function normalizeAvailabilityList(
+  data: AvailabilityListResponse
+): AvailabilityItem[] {
   if (Array.isArray(data)) {
     return data.map(normalizeAvailability);
   }
@@ -94,7 +107,9 @@ function normalizeAvailabilityList(data: AvailabilityListResponse): Availability
   return [];
 }
 
-function normalizeAvailabilitySingle(data: AvailabilitySingleResponse): AvailabilityItem {
+function normalizeAvailabilitySingle(
+  data: AvailabilitySingleResponse
+): AvailabilityItem {
   if (data && typeof data === "object" && "item" in data && data.item) {
     return normalizeAvailability(data.item);
   }
@@ -175,7 +190,12 @@ export async function deleteAvailability(
  */
 export async function autoGenerateAvailability(
   payload: AutoGenerateAvailabilityPayload
-): Promise<{ success?: boolean; message?: string; count?: number; items?: AvailabilityItem[] }> {
+): Promise<{
+  success?: boolean;
+  message?: string;
+  count?: number;
+  items?: AvailabilityItem[];
+}> {
   const response = await api.post("/availability/auto-generate", payload);
 
   return {
