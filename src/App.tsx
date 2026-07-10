@@ -1,24 +1,22 @@
 // Path: src/App.tsx
 
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useState
-} from "react";
-
-import {
-  Routes,
-  Route,
-  useLocation
-} from "react-router-dom";
-
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 
 import Header from "./components/ui/Header";
 import Footer from "./components/ui/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+// =========================
+// Patient Pages
+// =========================
+import PatientDashboard from "./pages/patient/PatientDashboard";
+import PatientAppointments from "./pages/patient/PatientAppointments";
+import BookAppointment from "./pages/patient/BookAppointment";
 
+// =========================
+// Public Pages
+// =========================
 const Home = lazy(() => import("./pages/Home"));
 const Doctors = lazy(() => import("./pages/Doctors"));
 const SearchResults = lazy(() => import("./pages/SearchResults"));
@@ -28,302 +26,215 @@ const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const DoctorLogin = lazy(() => import("./pages/DoctorLogin"));
 
-const MyAppointments =
-lazy(() => import("./pages/Patient/MyAppointments"));
+// =========================
+// Doctor Pages
+// =========================
+const DoctorDashboard = lazy(
+  () => import("./pages/doctor/DoctorDashboard")
+);
 
+const DoctorAppointments = lazy(
+  () => import("./pages/doctor/DoctorAppointments")
+);
 
-const DoctorDashboard =
-lazy(() => import("./pages/dashboard/DoctorDashboard"));
+const DoctorSchedule = lazy(
+  () => import("./pages/doctor/DoctorSchedule")
+);
 
-const DoctorAppointments =
-lazy(() => import("./pages/dashboard/DoctorAppointments"));
+// =========================
+// 404
+// =========================
+const NotFoundPage = lazy(
+  () => import("./pages/NotFoundPage")
+);
 
-const DoctorSchedule =
-lazy(() => import("./pages/dashboard/DoctorSchedule"));
 
+export default function App() {
+  const location = useLocation();
 
-const NotFoundPage =
-lazy(() => import("./pages/NotFoundPage"));
+  const [refreshHeader, setRefreshHeader] = useState(0);
 
+  useEffect(() => {
+    const updateHeader = () => {
+      setRefreshHeader((v) => v + 1);
+    };
 
+    window.addEventListener("storage", updateHeader);
+    window.addEventListener("auth-change", updateHeader);
 
-export default function App(){
+    return () => {
+      window.removeEventListener("storage", updateHeader);
+      window.removeEventListener("auth-change", updateHeader);
+    };
+  }, []);
 
 
- const location = useLocation();
+  const isHome = location.pathname === "/";
 
 
- const [refreshHeader,setRefreshHeader]=useState(0);
+  return (
+    <div
+      dir="rtl"
+      className="min-h-screen bg-[#f8fafc] text-slate-900"
+    >
 
+      <Header key={refreshHeader} />
 
 
- useEffect(()=>{
+      <main
+        className={
+          isHome
+            ? ""
+            : "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+        }
+      >
 
+        <Suspense
+          fallback={
+            <div className="flex min-h-[320px] items-center justify-center">
+              <div className="text-center">
 
-   const update=()=>{
+                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
 
-     setRefreshHeader(
-       v=>v+1
-     );
+                <p className="mt-4 font-bold text-slate-500">
+                  در حال بارگذاری...
+                </p>
 
-   };
+              </div>
+            </div>
+          }
+        >
 
+          <Routes>
 
-   window.addEventListener(
-    "storage",
-    update
-   );
+            {/* Public */}
 
+            <Route path="/" element={<Home />} />
 
-   window.addEventListener(
-    "auth-change",
-    update
-   );
+            <Route path="/doctors" element={<Doctors />} />
 
+            <Route
+              path="/search"
+              element={<SearchResults />}
+            />
 
-   return()=>{
+            <Route
+              path="/doctor/:id"
+              element={<DoctorProfilePage />}
+            />
 
-    window.removeEventListener(
-      "storage",
-      update
-    );
 
+            <Route
+              path="/login"
+              element={<Login />}
+            />
 
-    window.removeEventListener(
-      "auth-change",
-      update
-    );
+            <Route
+              path="/doctor-login"
+              element={<DoctorLogin />}
+            />
 
+            <Route
+              path="/register"
+              element={<Register />}
+            />
 
-   };
 
+            {/* Patient */}
 
- },[]);
 
+            <Route
+              path="/patient-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <PatientDashboard />
+                </ProtectedRoute>
+              }
+            />
 
 
+            <Route
+              path="/patient-appointments"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <PatientAppointments />
+                </ProtectedRoute>
+              }
+            />
 
- const isHome =
- location.pathname === "/";
 
+            <Route
+              path="/book-appointment"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <BookAppointment />
+                </ProtectedRoute>
+              }
+            />
 
 
- return (
+            <Route
+              path="/my-appointments"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <PatientAppointments />
+                </ProtectedRoute>
+              }
+            />
 
-<div
-dir="rtl"
-className="
-min-h-screen
-bg-[#f8fafc]
-text-slate-900
-"
->
 
 
-<Header key={refreshHeader}/>
+            {/* Doctor */}
 
 
+            <Route
+              path="/doctor-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <DoctorDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-<main
-className={
-isHome
-?
-""
-:
-"mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
-}
->
 
+            <Route
+              path="/doctor-appointments"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <DoctorAppointments />
+                </ProtectedRoute>
+              }
+            />
 
-<Suspense
 
-fallback={
+            <Route
+              path="/doctor-schedule"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <DoctorSchedule />
+                </ProtectedRoute>
+              }
+            />
 
-<div className="
-flex
-min-h-[320px]
-items-center
-justify-center
-flex-col
-">
 
 
-<div className="
-h-12
-w-12
-animate-spin
-rounded-full
-border-b-2
-border-t-2
-border-emerald-500
-"
-/>
+            {/* 404 */}
 
+            <Route
+              path="*"
+              element={<NotFoundPage />}
+            />
 
-<p className="
-mt-4
-text-sm
-font-bold
-text-slate-500
-">
 
-در حال بارگذاری صفحه...
+          </Routes>
 
-</p>
+        </Suspense>
 
+      </main>
 
-</div>
 
-}
+      <Footer />
 
-
->
-
-
-<Routes>
-
-
-<Route
-path="/"
-element={<Home/>}
-/>
-
-
-<Route
-path="/doctors"
-element={<Doctors/>}
-/>
-
-
-<Route
-path="/search"
-element={<SearchResults/>}
-/>
-
-
-<Route
-path="/doctor/:id"
-element={<DoctorProfilePage/>}
-/>
-
-
-<Route
-path="/login"
-element={<Login/>}
-/>
-
-
-<Route
-path="/doctor-login"
-element={<DoctorLogin/>}
-/>
-
-
-<Route
-path="/register"
-element={<Register/>}
-/>
-
-
-
-<Route
-
-path="/my-appointments"
-
-element={
-
-<ProtectedRoute allowedRoles={["patient"]}>
-
-<MyAppointments/>
-
-</ProtectedRoute>
-
-}
-
-/>
-
-
-
-<Route
-
-path="/doctor-dashboard"
-
-element={
-
-<ProtectedRoute allowedRoles={["doctor"]}>
-
-<DoctorDashboard/>
-
-</ProtectedRoute>
-
-}
-
-/>
-
-
-
-<Route
-
-path="/doctor-appointments"
-
-element={
-
-<ProtectedRoute allowedRoles={["doctor"]}>
-
-<DoctorAppointments/>
-
-</ProtectedRoute>
-
-}
-
-/>
-
-
-
-<Route
-
-path="/doctor-schedule"
-
-element={
-
-<ProtectedRoute allowedRoles={["doctor"]}>
-
-<DoctorSchedule/>
-
-</ProtectedRoute>
-
-}
-
-/>
-
-
-
-<Route
-
-path="*"
-
-element={<NotFoundPage/>}
-
-/>
-
-
-</Routes>
-
-
-</Suspense>
-
-
-</main>
-
-
-
-<Footer/>
-
-
-</div>
-
-
- );
-
-
+    </div>
+  );
 }

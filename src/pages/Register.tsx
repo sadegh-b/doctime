@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AxiosError } from "axios";
 import { register } from "../services/auth";
 
 type Role = "patient" | "doctor";
+
+type RegisterErrorResponse = {
+  detail?: string | { msg?: string }[] | Record<string, unknown>;
+  message?: string;
+};
 
 export default function Register() {
   const navigate = useNavigate();
@@ -51,14 +57,25 @@ export default function Register() {
       setSuccess("ثبت‌نام با موفقیت انجام شد");
 
       setTimeout(() => {
-        if (role === "doctor") {
-          navigate("/doctor-login");
-        } else {
-          navigate("/login");
-        }
+        navigate("/login");
       }, 700);
-    } catch {
-      setError("ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        const data = err.response?.data as RegisterErrorResponse | undefined;
+
+        if (typeof data?.detail === "string" && data.detail.trim()) {
+          setError(data.detail);
+        } else if (Array.isArray(data?.detail) && data.detail.length > 0) {
+          const firstMessage = data.detail[0]?.msg;
+          setError(firstMessage || "ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
+        } else if (typeof data?.message === "string" && data.message.trim()) {
+          setError(data.message);
+        } else {
+          setError("ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
+        }
+      } else {
+        setError("ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
+      }
     } finally {
       setLoading(false);
     }
@@ -72,7 +89,6 @@ export default function Register() {
       className="min-h-[72vh] flex items-center justify-center px-4 py-10"
     >
       <div className="grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.05fr_0.95fr]">
-        {/* Right / Form */}
         <div className="order-2 p-6 sm:p-8 lg:order-1 lg:p-10">
           <div className="mx-auto max-w-md">
             <div className="mb-8 text-center lg:text-right">
@@ -107,7 +123,6 @@ export default function Register() {
               </p>
             </div>
 
-            {/* role switch */}
             <div className="mb-6 grid grid-cols-2 gap-3 rounded-3xl bg-slate-100 p-2">
               <button
                 type="button"
@@ -253,7 +268,7 @@ export default function Register() {
               <div className="text-sm text-slate-500">
                 قبلاً حساب ساخته‌اید؟{" "}
                 <Link
-                  to={isDoctor ? "/doctor-login" : "/login"}
+                  to="/login"
                   className={`font-black ${
                     isDoctor
                       ? "text-cyan-700 hover:text-cyan-800"
@@ -267,7 +282,6 @@ export default function Register() {
           </div>
         </div>
 
-        {/* Left / Promo */}
         <div
           className={`order-1 p-6 text-white sm:p-8 lg:order-2 lg:p-10 ${
             isDoctor

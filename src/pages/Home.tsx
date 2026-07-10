@@ -150,9 +150,12 @@ export default function Home() {
     }
 
     if (selectedSpecialty) {
+      const specialtyLabel =
+        specialties.find((s) => s.value === selectedSpecialty)?.label ??
+        selectedSpecialty;
       items.push({
         key: "specialty",
-        label: `تخصص: ${selectedSpecialty}`,
+        label: `تخصص: ${specialtyLabel}`,
         onRemove: () => setSelectedSpecialty(null),
       });
     }
@@ -319,8 +322,8 @@ export default function Home() {
                 onSubmit={handleSearchSubmit}
                 className="rounded-[30px] border border-white/70 bg-white/90 p-4 shadow-[0_24px_60px_rgba(16,24,40,0.10)] backdrop-blur-2xl md:rounded-[34px] md:p-5"
               >
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {/* province */}
+                <div className="grid grid-cols-1 gap-3">
+                  {/* province (dropdown also lets the user pick a city inside it) */}
                   <div ref={locationRef} className="relative">
                     <button
                       type="button"
@@ -335,10 +338,12 @@ export default function Home() {
                         <span className="text-2xl text-slate-500">⌄</span>
                         <div className="text-right">
                           <p className="text-[12px] font-extrabold text-slate-500">
-                            استان
+                            استان{selectedCity ? " / شهر" : ""}
                           </p>
                           <p className="mt-1 text-lg font-black text-slate-900">
-                            {selectedProvince || "انتخاب استان"}
+                            {selectedCity
+                              ? `${selectedProvince} - ${selectedCity}`
+                              : selectedProvince || "انتخاب استان"}
                           </p>
                         </div>
                       </div>
@@ -418,31 +423,6 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-
-                  {/* city */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLocationOpen(true);
-                      setIsSpecialtyOpen(false);
-                    }}
-                    className="flex min-h-[78px] w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-right shadow-sm transition-all duration-200 hover:border-cyan-200 hover:bg-cyan-50/30"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-2xl text-slate-500">⌄</span>
-                      <div className="text-right">
-                        <p className="text-[12px] font-extrabold text-slate-500">
-                          شهر / محله
-                        </p>
-                        <p className="mt-1 text-lg font-black text-slate-900">
-                          {selectedCity || "انتخاب شهر"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-xl text-sky-700">
-                      🏙️
-                    </div>
-                  </button>
                 </div>
 
                 {/* specialty */}
@@ -464,7 +444,9 @@ export default function Home() {
                             تخصص
                           </p>
                           <p className="mt-1 text-lg font-black text-slate-900">
-                            {selectedSpecialty || "لیست تخصص‌ها"}
+                            {selectedSpecialty
+                              ? specialties.find((s) => s.value === selectedSpecialty)?.label ?? selectedSpecialty
+                              : "لیست تخصص‌ها"}
                           </p>
                         </div>
                       </div>
@@ -493,13 +475,13 @@ export default function Home() {
 
                         <div className="space-y-2">
                           {specialties.map((spec) => {
-                            const active = selectedSpecialty === spec;
+                            const active = selectedSpecialty === spec.value;
                             return (
                               <button
-                                key={spec}
+                                key={spec.value}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedSpecialty(spec);
+                                  setSelectedSpecialty(spec.value);
                                   setIsSpecialtyOpen(false);
                                 }}
                                 className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
@@ -510,7 +492,7 @@ export default function Home() {
                               >
                                 <div className="flex items-center gap-3">
                                   <span>🩺</span>
-                                  <span>{spec}</span>
+                                  <span>{spec.label}</span>
                                 </div>
                                 {active && <span>✓</span>}
                               </button>

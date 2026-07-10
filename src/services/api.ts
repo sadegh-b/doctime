@@ -1,8 +1,13 @@
 import axios from "axios";
-import type { InternalAxiosRequestConfig, AxiosError, AxiosResponse } from "axios";
+import type {
+  InternalAxiosRequestConfig,
+  AxiosError,
+  AxiosResponse,
+} from "axios";
 
 const BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string) || "http://127.0.0.1:8000/api";
+  (import.meta.env.VITE_API_BASE_URL as string) ||
+  "http://127.0.0.1:8000/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -12,7 +17,7 @@ const api = axios.create({
 });
 
 function getStoredToken(): string | null {
-  return localStorage.getItem("token") || localStorage.getItem("access_token");
+  return localStorage.getItem("access_token");
 }
 
 api.interceptors.request.use(
@@ -33,11 +38,14 @@ api.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
       localStorage.removeItem("access_token");
+      localStorage.removeItem("role");
 
-      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-        window.location.href = "/login";
+      if (typeof window !== "undefined") {
+        const path = window.location.pathname;
+        if (path !== "/login" && path !== "/doctor-login" && path !== "/register") {
+          window.location.href = "/login";
+        }
       }
     }
 

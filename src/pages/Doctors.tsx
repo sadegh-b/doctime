@@ -1,20 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { MapPin, Phone, Wallet, Stethoscope } from "lucide-react";
 import { getDoctors } from "../services/doctors";
 
+function toPersianDigits(value: string | number) {
+  return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+}
+
 export default function Doctors() {
-  // استفاده از React Query برای مدیریت درخواست و کش به صورت خودکار
-  const { data: doctors = [], isLoading, isError, error } = useQuery({
+  const {
+    data: doctors = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["doctors"],
     queryFn: getDoctors,
-    staleTime: 1000 * 60 * 5, // داده‌ها تا ۵ دقیقه تازه (fresh) در نظر گرفته می‌شوند
+    staleTime: 1000 * 60 * 5,
   });
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div
+        className="min-h-screen flex items-center justify-center bg-slate-50"
+        dir="rtl"
+      >
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-cyan-600 border-t-transparent"></div>
           <p className="text-lg text-slate-600">در حال دریافت پزشکان...</p>
         </div>
       </div>
@@ -23,15 +35,20 @@ export default function Doctors() {
 
   if (isError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-sm max-w-md">
-          <p className="text-red-500 font-bold mb-4">خطا در برقراری ارتباط!</p>
-          <p className="text-slate-500 text-sm mb-6">
-            {error instanceof Error ? error.message : "مشکلی در دریافت اطلاعات پزشکان به وجود آمد."}
+      <div
+        className="min-h-screen flex items-center justify-center bg-slate-50 px-4"
+        dir="rtl"
+      >
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+          <p className="mb-4 font-bold text-red-500">خطا در دریافت پزشکان</p>
+          <p className="mb-6 text-sm text-slate-500">
+            {error instanceof Error
+              ? error.message
+              : "مشکلی در دریافت اطلاعات پزشکان به وجود آمد."}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl transition text-sm"
+            className="rounded-xl bg-cyan-600 px-6 py-2 text-sm text-white transition hover:bg-cyan-700"
           >
             تلاش مجدد
           </button>
@@ -42,11 +59,10 @@ export default function Doctors() {
 
   return (
     <div className="min-h-screen bg-slate-50 py-12" dir="rtl">
-      <div className="max-w-6xl mx-auto px-4">
-
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-slate-800 mb-4">
-            نوبت‌دهی بهترین پزشکان ایران
+      <div className="mx-auto max-w-6xl px-4">
+        <div className="mb-10 text-center">
+          <h1 className="text-4xl font-black text-slate-800 mb-4">
+            نوبت‌دهی پزشکان
           </h1>
           <p className="text-slate-500">
             پزشک مورد نظر خود را انتخاب و آنلاین نوبت رزرو کنید
@@ -54,7 +70,7 @@ export default function Doctors() {
         </div>
 
         {doctors.length === 0 ? (
-          <div className="text-center text-slate-500 py-10">
+          <div className="py-10 text-center text-slate-500">
             پزشکی یافت نشد.
           </div>
         ) : (
@@ -62,44 +78,54 @@ export default function Doctors() {
             {doctors.map((doctor) => (
               <div
                 key={doctor.id}
-                className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 p-6 flex flex-col justify-between"
+                className="flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
               >
                 <div>
-                  <div className="flex items-center gap-4 mb-4">
-                    <img
-                      src={doctor.image}
-                      alt={doctor.name}
-                      className="w-20 h-20 rounded-full object-cover border border-slate-100"
-                    />
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-800">
-                        {doctor.name}
+                  <div className="mb-5 flex items-center gap-4">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full border border-cyan-200 bg-cyan-100 text-lg font-black text-cyan-700">
+                      دکتر
+                    </div>
+
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-black text-slate-800">
+                        {doctor.user_name || "پزشک"}
                       </h2>
-                      <p className="text-blue-600 text-sm font-semibold mt-1">
+                      <p className="mt-1 text-sm font-semibold text-cyan-600">
                         {doctor.specialty}
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-sm text-slate-600 border-t border-slate-100 pt-4">
+                  <div className="space-y-3 border-t border-slate-100 pt-4 text-sm text-slate-600">
                     <div className="flex items-center gap-2">
-                      <span>📍</span>
-                      <span>{doctor.city}</span>
+                      <MapPin className="h-4 w-4 text-cyan-600" />
+                      <span>{doctor.city || "نامشخص"}</span>
                     </div>
+
                     <div className="flex items-center gap-2">
-                      <span>⭐</span>
-                      <span className="font-semibold">{doctor.rating}</span>
+                      <Wallet className="h-4 w-4 text-cyan-600" />
+                      <span>
+                        {doctor.visit_fee != null
+                          ? `${toPersianDigits(doctor.visit_fee)} تومان`
+                          : "هزینه ثبت نشده"}
+                      </span>
                     </div>
+
                     <div className="flex items-center gap-2">
-                      <span>⏰</span>
-                      <span>اولین نوبت: {doctor.nextAvailable}</span>
+                      <Phone className="h-4 w-4 text-cyan-600" />
+                      <span>{doctor.phone || "شماره ثبت نشده"}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="h-4 w-4 text-cyan-600" />
+                      <span>{doctor.specialty}</span>
                     </div>
                   </div>
                 </div>
 
                 <Link
                   to={`/doctor/${doctor.id}`}
-                  className="mt-6 block text-center bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition"
+                  className="mt-6 block rounded-xl bg-cyan-600 py-3 text-center font-medium text-white transition hover:bg-cyan-700"
                 >
                   دریافت نوبت
                 </Link>

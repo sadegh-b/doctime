@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login, saveRole } from "../services/auth";
+import { getMyProfile } from "../services/profile";
 
 export default function DoctorLogin() {
   const navigate = useNavigate();
@@ -27,10 +28,20 @@ export default function DoctorLogin() {
       setLoading(true);
 
       await login(normalizedPhone, normalizedPassword);
+
+      const profile = await getMyProfile();
+
+      if (profile.role !== "doctor") {
+        setError("این حساب پزشک نیست. از صفحه ورود بیمار استفاده کنید.");
+        return;
+      }
+
       saveRole("doctor");
+      window.dispatchEvent(new Event("auth-change"));
 
       navigate("/doctor-dashboard");
-    } catch {
+    } catch (err) {
+      console.error("DOCTOR LOGIN ERROR:", err);
       setError("ورود پزشک ناموفق بود. اطلاعات را بررسی کنید.");
     } finally {
       setLoading(false);
@@ -43,7 +54,6 @@ export default function DoctorLogin() {
       className="min-h-[72vh] flex items-center justify-center px-4 py-10"
     >
       <div className="grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.05fr_0.95fr]">
-        {/* Right / Form */}
         <div className="order-2 p-6 sm:p-8 lg:order-1 lg:p-10">
           <div className="mx-auto max-w-md">
             <div className="mb-8 text-center lg:text-right">
@@ -95,7 +105,7 @@ export default function DoctorLogin() {
                   id="doctor-phone"
                   type="tel"
                   inputMode="numeric"
-                  placeholder="شماره موبایل"
+                  placeholder="09123456789"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
@@ -152,7 +162,6 @@ export default function DoctorLogin() {
           </div>
         </div>
 
-        {/* Left / Promo */}
         <div className="order-1 bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900 p-6 text-white sm:p-8 lg:order-2 lg:p-10">
           <div className="flex h-full flex-col justify-between">
             <div>

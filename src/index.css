@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   * {
@@ -36,52 +38,4 @@
   textarea {
     font: inherit;
   }
-
-  ::selection {
-    background: rgba(16, 185, 129, 0.18);
-  }
-
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-  }
-}
-
-/* لایه شیشه‌ای عمومی */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
-}
-
-/* انیمیشن شناور */
-@keyframes floatY {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
-
-.animate-float {
-  animation: floatY 5s ease-in-out infinite;
 }

@@ -1,25 +1,20 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Clock3,
   RefreshCw,
-  Search,
   Stethoscope,
   Users,
-  XCircle,
   CheckCircle2,
+  XCircle,
   AlertCircle,
-  FileText,
+  ArrowLeft,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { getMyProfile } from "../../services/profile";
-import {
-  getDoctorAppointments,
-  completeAppointment,
-  type Appointment,
-} from "../../services/appointments";
+import { getAllAppointments, type Appointment } from "../../services/appointments";
 
 function toPersianDigits(value: string | number) {
   return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -50,9 +45,9 @@ function statusText(status?: string) {
     case "pending":
       return "در انتظار";
     case "confirmed":
-      return "تأیید شده";
-    case "booked":
+      return "تایید شده";
     case "reserved":
+    case "booked":
     default:
       return "رزرو شده";
   }
@@ -67,25 +62,15 @@ function statusClass(status?: string) {
     case "pending":
       return "bg-amber-100 text-amber-700 border-amber-200";
     case "confirmed":
-      return "bg-blue-100 text-blue-700 border-blue-200";
-    case "booked":
+      return "bg-cyan-100 text-cyan-700 border-cyan-200";
     case "reserved":
+    case "booked":
     default:
       return "bg-emerald-100 text-emerald-700 border-emerald-200";
   }
 }
 
-function canComplete(status?: string) {
-  return status !== "completed" && status !== "cancelled";
-}
-
-export default function DoctorAppointments() {
-  const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "reserved" | "pending" | "completed" | "cancelled"
-  >("all");
-
+export default function DoctorDashboard() {
   const {
     data: profile,
     isLoading: profileLoading,
@@ -96,76 +81,37 @@ export default function DoctorAppointments() {
     queryFn: getMyProfile,
   });
 
-  const doctorId = profile?.id;
-
   const {
     data: appointments = [],
-    isLoading,
-    isError,
-    refetch,
+    isLoading: appointmentsLoading,
+    isError: appointmentsError,
+    refetch: refetchAppointments,
     isFetching,
   } = useQuery<Appointment[]>({
-    queryKey: ["doctor-appointments", doctorId],
-    queryFn: () => getDoctorAppointments(doctorId),
-    enabled: Boolean(doctorId),
+    queryKey: ["doctor-appointments-dashboard"],
+    queryFn: getAllAppointments,
   });
 
-  const completeMutation = useMutation({
-    mutationFn: (appointmentId: number) => completeAppointment(appointmentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctor-appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["doctor-dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["patient-appointments"] });
-    },
-    onError: () => {
-      alert("تکمیل نوبت انجام نشد");
-    },
-  });
+  const stats = useMemo(() => {
+    const total = appointments.length;
+    const booked = appointments.filter((a) =>
+      ["booked", "reserved", "confirmed"].includes(a.status ?? "")
+    ).length;
+    const pending = appointments.filter((a) => a.status === "pending").length;
+    const completed = appointments.filter((a) => a.status === "completed").length;
+    const cancelled = appointments.filter((a) => a.status === "cancelled").length;
 
-  const filteredAppointments = useMemo(() => {
-    return appointments
-      .filter((item) => {
-        const matchesSearch =
-          !search.trim() ||
-          (item.patient_name ?? "")
-            .toLowerCase()
-            .includes(search.trim().toLowerCase()) ||
-          (item.notes ?? "")
-            .toLowerCase()
-            .includes(search.trim().toLowerCase());
+    return { total, booked, pending, completed, cancelled };
+  }, [appointments]);
 
-        const normalizedStatus =
-          item.status === "booked" ? "reserved" : item.status ?? "reserved";
-
-        const matchesStatus =
-          statusFilter === "all"
-            ? true
-            : normalizedStatus === statusFilter;
-
-        return matchesSearch && matchesStatus;
-      })
+  const recentAppointments = useMemo(() => {
+    return [...appointments]
       .sort((a, b) => {
         const aDate = `${a.date ?? ""} ${a.start_time ?? ""}`;
         const bDate = `${b.date ?? ""} ${b.start_time ?? ""}`;
         return bDate.localeCompare(aDate);
-      });
-  }, [appointments, search, statusFilter]);
-
-  const stats = useMemo(() => {
-    const normalize = (status?: string) =>
-      status === "booked" ? "reserved" : status;
-
-    return {
-      total: appointments.length,
-      reserved: appointments.filter((a) => normalize(a.status) === "reserved")
-        .length,
-      pending: appointments.filter((a) => normalize(a.status) === "pending")
-        .length,
-      completed: appointments.filter((a) => normalize(a.status) === "completed")
-        .length,
-      cancelled: appointments.filter((a) => normalize(a.status) === "cancelled")
-        .length,
-    };
+      })
+      .slice(0, 5);
   }, [appointments]);
 
   if (profileLoading) {
@@ -176,7 +122,7 @@ export default function DoctorAppointments() {
     );
   }
 
-  if (profileError || !doctorId) {
+  if (profileError || !profile) {
     return (
       <div dir="rtl" className="p-10">
         <div className="mx-auto max-w-3xl rounded-3xl border border-red-200 bg-red-50 p-6 text-center">
@@ -198,50 +144,40 @@ export default function DoctorAppointments() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 p-5">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900 p-6 text-white shadow-sm">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black text-cyan-100 backdrop-blur">
-              Doctor Appointments
+              Doctor Dashboard
             </div>
 
-            <h1 className="mt-4 text-3xl font-black">نوبت‌های پزشک</h1>
+            <h1 className="mt-4 text-3xl font-black">
+              خوش آمدی {profile.name ?? "پزشک"}
+            </h1>
 
             <p className="mt-3 text-sm leading-7 text-slate-300">
-              {profile?.name ?? "پزشک"} — همه نوبت‌های ثبت‌شده برای این پزشک در
-              این صفحه نمایش داده می‌شود.
+              {profile.specialty ?? "پزشک"} — از این داشبورد می‌توانی نوبت‌ها،
+              بیماران و برنامه کاری خودت را مدیریت کنی.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => refetch()}
+              onClick={() => refetchAppointments()}
               className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-black text-white backdrop-blur"
             >
-              <RefreshCw
-                size={16}
-                className={isFetching ? "animate-spin" : ""}
-              />
+              <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
               بروزرسانی
             </button>
 
             <Link
-              to="/doctor/dashboard"
+              to="/doctor/appointments"
               className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-900"
             >
-              بازگشت به داشبورد
-            </Link>
-
-            <Link
-              to="/doctor/availability"
-              className="rounded-2xl bg-cyan-600 px-4 py-2.5 text-sm font-black text-white"
-            >
-              مدیریت برنامه زمانی
+              نوبت‌های پزشک
             </Link>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
@@ -262,7 +198,7 @@ export default function DoctorAppointments() {
               <div>
                 <div className="text-sm font-bold text-slate-500">رزرو شده</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
-                  {toPersianDigits(stats.reserved)}
+                  {toPersianDigits(stats.booked)}
                 </div>
               </div>
               <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
@@ -314,74 +250,42 @@ export default function DoctorAppointments() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
-          <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
-            <div className="relative">
-              <Search
-                size={18}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="جستجو بر اساس نام بیمار یا توضیحات"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pr-11 pl-4 text-sm outline-none transition focus:border-cyan-500"
-              />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-900">
+                  آخرین نوبت‌ها
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  آخرین نوبت‌های ثبت‌شده بیماران برای شما
+                </p>
+              </div>
+
+              <Link
+                to="/doctor/appointments"
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700"
+              >
+                مشاهده همه
+                <ArrowLeft size={16} />
+              </Link>
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(
-                  e.target.value as
-                    | "all"
-                    | "reserved"
-                    | "pending"
-                    | "completed"
-                    | "cancelled"
-                )
-              }
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none"
-            >
-              <option value="all">همه وضعیت‌ها</option>
-              <option value="reserved">رزرو شده</option>
-              <option value="pending">در انتظار</option>
-              <option value="completed">انجام شده</option>
-              <option value="cancelled">لغو شده</option>
-            </select>
-          </div>
-        </div>
-
-        {/* List */}
-        <div className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
-          <div className="mb-5">
-            <h2 className="text-xl font-black text-slate-900">لیست نوبت‌ها</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              نوبت‌های ثبت‌شده برای پزشک با توجه به داده‌های بک‌اند
-            </p>
-          </div>
-
-          {isLoading ? (
-            <div className="py-10 text-center font-black text-slate-600">
-              در حال دریافت نوبت‌ها...
-            </div>
-          ) : isError ? (
-            <div className="rounded-2xl bg-red-50 p-5 text-center font-black text-red-700">
-              خطا در دریافت نوبت‌های پزشک
-            </div>
-          ) : filteredAppointments.length === 0 ? (
-            <div className="rounded-2xl bg-slate-50 p-8 text-center font-black text-slate-600">
-              نوبتی برای نمایش پیدا نشد
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredAppointments.map((appointment) => {
-                const completing =
-                  completeMutation.isPending &&
-                  completeMutation.variables === appointment.id;
-
-                return (
+            {appointmentsLoading ? (
+              <div className="py-10 text-center font-black text-slate-600">
+                در حال دریافت نوبت‌ها...
+              </div>
+            ) : appointmentsError ? (
+              <div className="rounded-2xl bg-red-50 p-5 text-center font-black text-red-700">
+                خطا در دریافت نوبت‌ها
+              </div>
+            ) : recentAppointments.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 p-8 text-center font-black text-slate-600">
+                هنوز نوبتی ثبت نشده است
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentAppointments.map((appointment) => (
                   <div
                     key={appointment.id}
                     className="rounded-3xl border border-slate-200 p-5"
@@ -395,9 +299,7 @@ export default function DoctorAppointments() {
 
                         <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                           <Stethoscope size={16} />
-                          {appointment.specialty ??
-                            profile?.specialty ??
-                            "تخصص نامشخص"}
+                          {profile.specialty ?? "تخصص نامشخص"}
                         </div>
                       </div>
 
@@ -431,8 +333,7 @@ export default function DoctorAppointments() {
 
                     {appointment.notes ? (
                       <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex items-center gap-2 text-sm font-black text-slate-700">
-                          <FileText size={16} />
+                        <div className="text-sm font-black text-slate-700">
                           توضیحات بیمار
                         </div>
                         <div className="mt-2 text-sm leading-7 text-slate-600">
@@ -440,38 +341,64 @@ export default function DoctorAppointments() {
                         </div>
                       </div>
                     ) : null}
-
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-                      <div className="text-xs text-slate-400">
-                        شناسه نوبت: {toPersianDigits(appointment.id)}
-                      </div>
-
-                      {canComplete(appointment.status) ? (
-                        <button
-                          type="button"
-                          disabled={completing}
-                          onClick={() => {
-                            const confirmed = window.confirm(
-                              "آیا از انجام شدن این نوبت مطمئن هستید؟"
-                            );
-                            if (!confirmed) return;
-                            completeMutation.mutate(appointment.id);
-                          }}
-                          className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {completing ? "در حال ثبت..." : "ثبت به عنوان انجام شده"}
-                        </button>
-                      ) : (
-                        <div className="text-sm font-black text-slate-400">
-                          این نوبت قابل تغییر نیست
-                        </div>
-                      )}
-                    </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-black text-slate-900">
+                اطلاعات پزشک
+              </h2>
+
+              <div className="mt-5 space-y-4">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-sm text-slate-500">نام پزشک</div>
+                  <div className="mt-1 font-black text-slate-900">
+                    {profile.name ?? "-"}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-sm text-slate-500">تخصص</div>
+                  <div className="mt-1 font-black text-slate-900">
+                    {profile.specialty ?? "-"}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-sm text-slate-500">ایمیل</div>
+                  <div className="mt-1 font-black text-slate-900">
+                    {profile.email ?? "-"}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+
+            <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-black text-slate-900">دسترسی سریع</h2>
+
+              <div className="mt-5 grid gap-3">
+                <Link
+                  to="/doctor/appointments"
+                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-sm font-black text-slate-800 transition hover:border-cyan-400 hover:bg-cyan-50"
+                >
+                  <span>مشاهده نوبت‌های پزشک</span>
+                  <ArrowLeft size={16} />
+                </Link>
+
+                <Link
+                  to="/doctor/profile"
+                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-sm font-black text-slate-800 transition hover:border-cyan-400 hover:bg-cyan-50"
+                >
+                  <span>مشاهده پروفایل پزشک</span>
+                  <ArrowLeft size={16} />
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

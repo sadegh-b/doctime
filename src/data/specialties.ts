@@ -1,37 +1,26 @@
-﻿// مسیر: src/data/specialties.ts
+﻿// src/data/specialties.ts
 
-export const specialties: string[] = [
-  "متخصص قلب و عروق",
-  "متخصص مغز و اعصاب",
-  "متخصص زنان و زایمان",
-  "متخصص اطفال",
-  "متخصص پوست و مو",
-  "متخصص ارتوپدی",
-  "متخصص چشم پزشکی",
-  "متخصص گوش و حلق و بینی",
-  "متخصص داخلی",
-  "متخصص رادیولوژی",
-  "متخصص روانپزشکی",
-  "متخصص کلیه و مجاری ادراری",
-  "متخصص جراحی عمومی",
-  "متخصص جراحی مغز و اعصاب",
-  "متخصص جراحی قلب و عروق",
-  "متخصص بیهوشی",
-  "متخصص طب فیزیکی و توانبخشی",
-  "متخصص عفونی",
-  "متخصص خون و آنکولوژی",
-  "متخصص غدد",
-  "متخصص روماتولوژی",
-  "متخصص گوارش و کبد",
-  "متخصص ریه",
-  "متخصص آلرژی و ایمونولوژی",
-  "متخصص پزشکی هسته‌ای",
-  "متخصص پزشکی ورزشی",
-  "متخصص ژنتیک",
-  "متخصص طب کار",
-  "متخصص طب سنتی",
-  "متخصص طب اورژانس",
-  "دندانپزشک",
-  "دکترای داروسازی",
-  "دکترای علوم آزمایشگاهی"
+// نکته مهم: value باید دقیقاً همون رشته‌ای باشه که در ستون specialty دیتابیس ذخیره شده.
+// فقط "قلب و عروق" -> "Cardiologist" و "پزشک عمومی" -> "General Medicine"
+// از روی تست واقعی API تأیید شدن. بقیه حدس منطقی هستن — با داده‌ی واقعی
+// دیتابیستون چک و در صورت نیاز اصلاح کنید (این تنها جایی است که باید عوض بشه).
+
+export interface SpecialtyOption {
+  label: string; // نمایش فارسی
+  value: string; // مقدار انگلیسی مورد انتظار بک‌اند
+}
+
+export const specialties: SpecialtyOption[] = [
+  { label: "قلب و عروق", value: "Cardiologist" },
+  { label: "کودکان و اطفال", value: "Pediatrician" },
+  { label: "چشم‌پزشکی", value: "Ophthalmologist" },
+  { label: "داخلی و عمومی", value: "Internal Medicine" },
+  { label: "مغز و اعصاب", value: "Neurologist" },
+  { label: "روان‌پزشکی", value: "Psychiatrist" },
+  { label: "ارتوپدی", value: "Orthopedist" },
+  { label: "پزشک عمومی", value: "General Medicine" },
 ];
+
+export function specialtyValueToLabel(value: string): string {
+  return specialties.find((s) => s.value === value)?.label ?? value;
+}

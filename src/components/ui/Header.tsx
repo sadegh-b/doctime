@@ -1,29 +1,100 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { getRole, logout } from "../../services/auth";
+// src/components/ui/Header.tsx
+
+import {
+  Link,
+  NavLink,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  getRole,
+  logout,
+} from "../../services/auth";
 
 
 const navItems = [
-  { label: "صفحه اصلی", to: "/" },
-  { label: "پزشکان", to: "/doctors" },
-  { label: "جستجوی پزشک", to: "/search" },
+  {
+    label: "صفحه اصلی",
+    to: "/",
+  },
+  {
+    label: "پزشکان",
+    to: "/doctors",
+  },
+  {
+    label: "جستجوی پزشک",
+    to: "/search",
+  },
 ];
 
 
 export default function Header() {
 
+
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [role, setRole] = useState<string | null>(null);
-  const [menu, setMenu] = useState(false);
+
+  const [role, setRole] =
+    useState<string | null>(null);
 
 
-  useEffect(() => {
+  const [menu, setMenu] =
+    useState(false);
 
-    setRole(getRole());
 
-  }, [location.pathname]);
+
+  function updateAuth(){
+
+    const currentRole =
+      getRole();
+
+    setRole(currentRole);
+
+  }
+
+
+
+  useEffect(()=>{
+
+    updateAuth();
+
+
+    window.addEventListener(
+      "auth-change",
+      updateAuth
+    );
+
+
+    return ()=>{
+
+      window.removeEventListener(
+        "auth-change",
+        updateAuth
+      );
+
+    };
+
+
+  },[]);
+
+
+
+  useEffect(()=>{
+
+    setMenu(false);
+
+  },[
+    location.pathname
+  ]);
+
+
 
 
 
@@ -39,14 +110,17 @@ export default function Header() {
 
 
 
+
+
   return (
 
 <header
 className="
-sticky top-0
+sticky
+top-0
 z-50
 px-4
-pt-3
+pt-4
 "
 >
 
@@ -59,17 +133,18 @@ border
 border-slate-200
 bg-white/90
 backdrop-blur-xl
-shadow-lg
+shadow-xl
 "
 >
+
 
 <div
 className="
 flex
-min-h-[82px]
 items-center
 justify-between
 px-6
+py-4
 "
 >
 
@@ -78,8 +153,13 @@ px-6
 
 <Link
 to="/"
-className="flex items-center gap-3"
+className="
+flex
+items-center
+gap-3
+"
 >
+
 
 <div
 className="
@@ -93,8 +173,9 @@ bg-gradient-to-br
 from-emerald-500
 to-cyan-600
 text-white
-text-2xl
+text-3xl
 font-black
+shadow-lg
 "
 >
 +
@@ -103,18 +184,18 @@ font-black
 
 <div>
 
-<div
+<h1
 className="
-font-black
 text-xl
+font-black
 text-slate-900
 "
 >
 DocTime
-</div>
+</h1>
 
 
-<div
+<p
 className="
 text-xs
 font-bold
@@ -122,16 +203,17 @@ text-slate-500
 "
 >
 سامانه نوبت‌دهی آنلاین پزشکان
-</div>
+</p>
 
 </div>
-
 
 </Link>
 
 
 
-{/* Desktop menu */}
+
+
+{/* Menu */}
 
 <nav
 className="
@@ -142,23 +224,25 @@ gap-2
 "
 >
 
+
 {
 navItems.map(item=>(
 
 <NavLink
 key={item.to}
 to={item.to}
-className={({isActive})=>
 
+className={({isActive})=>
 `
-px-4
+px-5
 py-2
 rounded-full
-font-bold
 text-sm
+font-black
 transition
 
-${isActive
+${
+isActive
 ?
 "bg-emerald-50 text-emerald-700"
 :
@@ -166,8 +250,8 @@ ${isActive
 }
 
 `
-
 }
+
 >
 
 {item.label}
@@ -175,6 +259,7 @@ ${isActive
 </NavLink>
 
 ))
+
 }
 
 
@@ -185,7 +270,6 @@ ${isActive
 
 
 {/* Actions */}
-
 
 <div
 className="
@@ -202,22 +286,46 @@ gap-3
 
 <>
 
+
 <Link
 to="/login"
+
 className="
 rounded-full
 border
+border-slate-200
 px-5
 py-2
-font-bold
+font-black
+text-slate-700
+hover:bg-slate-100
 "
 >
-ورود
+ورود بیمار
 </Link>
+
+
+
+<Link
+to="/doctor-login"
+
+className="
+rounded-full
+bg-cyan-50
+px-5
+py-2
+font-black
+text-cyan-700
+"
+>
+ورود پزشک
+</Link>
+
 
 
 <Link
 to="/register"
+
 className="
 rounded-full
 bg-gradient-to-r
@@ -225,12 +333,13 @@ from-emerald-600
 to-cyan-600
 px-5
 py-2
-font-bold
+font-black
 text-white
 "
 >
 ثبت‌نام
 </Link>
+
 
 </>
 
@@ -245,36 +354,40 @@ role==="patient" &&
 <>
 
 <Link
-to="/my-appointments"
+to="/patient-dashboard"
+
 className="
 rounded-full
 bg-emerald-50
 px-5
 py-2
-font-bold
+font-black
 text-emerald-700
+"
+>
+پنل بیمار
+</Link>
+
+
+<Link
+to="/my-appointments"
+
+className="
+rounded-full
+bg-slate-100
+px-5
+py-2
+font-black
 "
 >
 نوبت‌های من
 </Link>
 
 
-<button
-onClick={handleLogout}
-className="
-rounded-full
-border
-px-5
-py-2
-font-bold
-"
->
-خروج
-</button>
-
 </>
 
 }
+
 
 
 
@@ -282,43 +395,54 @@ font-bold
 {
 role==="doctor" &&
 
-<>
-
 <Link
 to="/doctor-dashboard"
+
 className="
 rounded-full
 bg-cyan-50
 px-5
 py-2
-font-bold
+font-black
 text-cyan-700
 "
 >
 پنل پزشک
 </Link>
 
+}
+
+
+
+
+{
+role &&
 
 <button
+
 onClick={handleLogout}
+
 className="
 rounded-full
 border
+border-red-200
 px-5
 py-2
-font-bold
+font-black
+text-red-600
+hover:bg-red-50
 "
 >
+
 خروج
+
 </button>
-
-
-</>
 
 }
 
 
 </div>
+
 
 
 
@@ -333,8 +457,8 @@ rounded-xl
 border
 px-3
 py-2
+font-black
 "
-
 >
 ☰
 </button>
@@ -342,6 +466,7 @@ py-2
 
 
 </div>
+
 
 
 
@@ -365,18 +490,22 @@ navItems.map(item=>(
 <Link
 key={item.to}
 to={item.to}
+
 className="
 block
 rounded-xl
 p-3
-font-bold
+font-black
 hover:bg-slate-100
 "
 >
+
 {item.label}
+
 </Link>
 
 ))
+
 }
 
 
@@ -385,22 +514,47 @@ hover:bg-slate-100
 !role &&
 
 <>
+
 <Link
 to="/login"
-className="block p-3 font-bold"
+className="
+block
+p-3
+font-black
+"
 >
-ورود
+ورود بیمار
 </Link>
+
+
+<Link
+to="/doctor-login"
+className="
+block
+p-3
+font-black
+"
+>
+ورود پزشک
+</Link>
+
 
 <Link
 to="/register"
-className="block p-3 font-bold"
+className="
+block
+p-3
+font-black
+"
 >
 ثبت‌نام
 </Link>
+
 </>
 
 }
+
+
 
 
 
@@ -409,7 +563,13 @@ role==="doctor" &&
 
 <Link
 to="/doctor-dashboard"
-className="block p-3 font-bold text-cyan-700"
+
+className="
+block
+p-3
+font-black
+text-cyan-700
+"
 >
 پنل پزشک
 </Link>
@@ -417,29 +577,60 @@ className="block p-3 font-bold text-cyan-700"
 }
 
 
+
+
 {
 role==="patient" &&
 
 <Link
-to="/my-appointments"
-className="block p-3 font-bold text-emerald-700"
+to="/patient-dashboard"
+
+className="
+block
+p-3
+font-black
+text-emerald-700
+"
 >
-نوبت‌های من
+پنل بیمار
 </Link>
 
 }
 
 
-</div>
+
+
+{
+role &&
+
+<button
+
+onClick={handleLogout}
+
+className="
+w-full
+text-right
+p-3
+font-black
+text-red-600
+"
+>
+خروج
+</button>
 
 }
 
+
+
+</div>
+
+}
 
 
 </div>
 
 </header>
 
-);
+  );
 
 }

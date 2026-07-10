@@ -1,54 +1,41 @@
+// Path: src/services/doctors.ts
+
 import api from "./api";
 
-
 export interface Doctor {
-
-id:number;
-name:string;
-specialty:string;
-city:string;
-
-image?:string;
-rating?:number;
-nextAvailable?:string;
-
-bio?:string;
-
+  id: number;
+  name: string;
+  specialty: string;
+  city?: string;
+  phone?: string;
+  about?: string;
+  image?: string;
+  visit_fee?: number;
+  experience?: string;
+  patients?: number;
 }
 
 
-
-export async function getDoctors():Promise<Doctor[]>{
-
-const response =
-await api.get("/doctors");
-
-
-if(Array.isArray(response.data)){
-return response.data;
+export async function getDoctors(): Promise<Doctor[]> {
+  const response = await api.get("/doctors");
+  return response.data;
 }
-
-
-if(Array.isArray(response.data.items)){
-return response.data.items;
-}
-
-
-return [];
-
-}
-
-
 
 
 export async function getDoctorById(
-id:number
-):Promise<Doctor>{
+  id: number
+): Promise<Doctor> {
+  const response = await api.get(`/doctors/${id}`);
+  return response.data;
+}
 
-const response =
-await api.get(`/doctors/${id}`);
 
+export async function searchDoctors(
+  params?: Record<string, string | number>
+): Promise<Doctor[]> {
+  const response = await api.get("/doctors/search", {
+    params,
+  });
 
-return response.data;
-
+  return response.data;
 }

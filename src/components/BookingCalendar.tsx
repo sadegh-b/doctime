@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+// Path: src/components/BookingCalendar.tsx
+
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
@@ -13,6 +15,11 @@ interface Props {
   doctorId: number;
   doctorName?: string;
   specialty?: string;
+}
+
+interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
 }
 
 function toPersianDigits(value: string | number) {
@@ -51,6 +58,10 @@ export default function BookingCalendar({
   const queryClient = useQueryClient();
 
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const {
     data: availabilitySlots = [],
@@ -63,10 +74,7 @@ export default function BookingCalendar({
   });
 
   const freeSlots = useMemo(
-    () =>
-      availabilitySlots.filter(
-        (slot) => slot.is_available && !slot.is_booked
-      ),
+    () => availabilitySlots.filter((slot) => slot.is_available && !slot.is_booked),
     [availabilitySlots]
   );
 
@@ -83,36 +91,47 @@ export default function BookingCalendar({
       });
 
       setSelectedSlotId(null);
-      alert("نوبت با موفقیت ثبت شد");
+      setMessage({
+        type: "success",
+        text: "نوبت شما با موفقیت ثبت شد.",
+      });
     },
     onError: (err: unknown) => {
-      let message = "خطا در رزرو نوبت";
+      let msg = "خطا در ثبت نوبت";
 
       if (err instanceof AxiosError) {
-        message =
-          err.response?.data?.detail ||
-          err.response?.data?.message ||
-          err.message ||
-          message;
+        const data = err.response?.data as ApiErrorResponse | undefined;
+        msg = data?.detail || data?.message || err.message || msg;
       }
 
-      alert(message);
+      setMessage({
+        type: "error",
+        text: msg,
+      });
     },
   });
 
   const handleBooking = () => {
+    setMessage(null);
+
     const token =
       localStorage.getItem("token") ||
       localStorage.getItem("access_token");
 
     if (!token) {
-      alert("برای رزرو ابتدا وارد حساب کاربری شوید.");
-      navigate("/login");
+      setMessage({
+        type: "error",
+        text: "برای رزرو ابتدا وارد حساب کاربری شوید.",
+      });
+      setTimeout(() => navigate("/login"), 1000);
       return;
     }
 
     if (!selectedSlotId) {
-      alert("یک زمان را انتخاب کنید");
+      setMessage({
+        type: "error",
+        text: "لطفاً یک زمان را انتخاب کنید.",
+      });
       return;
     }
 
@@ -163,9 +182,20 @@ export default function BookingCalendar({
           )}
 
           <p className="mt-3 text-sm font-bold leading-7 text-slate-500">
-            یکی از زمان‌های آزاد زیر را انتخاب کنید و نوبت خود را آنلاین ثبت
-            کنید.
+            تاریخ موردنظر را از تقویم زیر انتخاب کنید و نوبت خود را آنلاین نهایی کنید.
           </p>
+        </div>
+      )}
+
+      {message && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm font-bold ${
+            message.type === "success"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {message.text}
         </div>
       )}
 
@@ -177,7 +207,10 @@ export default function BookingCalendar({
             <button
               key={slot.id}
               type="button"
-              onClick={() => setSelectedSlotId(slot.id)}
+              onClick={() => {
+                setSelectedSlotId(slot.id);
+                setMessage(null);
+              }}
               className={`rounded-[24px] border p-4 text-right transition-all duration-200 ${
                 selected
                   ? "border-cyan-500 bg-cyan-600 text-white shadow-[0_12px_30px_rgba(6,182,212,0.22)]"

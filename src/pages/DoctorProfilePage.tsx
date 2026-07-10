@@ -1,5 +1,3 @@
-// Path: src/pages/DoctorProfilePage.tsx
-
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -10,13 +8,11 @@ import {
 import { AxiosError } from "axios";
 import {
   MapPin,
-  Star,
   Clock3,
   CalendarDays,
   Stethoscope,
-  Building2,
-  Users,
-  ShieldCheck,
+  Phone,
+  Wallet,
 } from "lucide-react";
 
 import { getDoctorById } from "../services/doctors";
@@ -33,12 +29,12 @@ function toPersianDigits(value: string | number) {
   return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 }
 
-function formatTime(value?: string) {
+function formatTime(value?: string | null) {
   if (!value) return "--:--";
   return toPersianDigits(value.slice(0, 5));
 }
 
-function formatPersianDate(dateStr?: string) {
+function formatPersianDate(dateStr?: string | null) {
   if (!dateStr) return "تاریخ نامشخص";
 
   try {
@@ -56,6 +52,11 @@ function formatPersianDate(dateStr?: string) {
   }
 }
 
+function formatPrice(value?: number | null) {
+  if (value == null) return "ثبت نشده";
+  return `${toPersianDigits(Math.round(value))} تومان`;
+}
+
 interface ApiErrorResponse {
   detail?: string;
   message?: string;
@@ -67,6 +68,7 @@ export default function DoctorProfilePage() {
   const queryClient = useQueryClient();
 
   const doctorId = Number(id);
+
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -82,16 +84,19 @@ export default function DoctorProfilePage() {
     queryKey: ["doctor", doctorId],
     queryFn: () => getDoctorById(doctorId),
     enabled: isValidDoctorId,
+    retry: false,
   });
 
   const {
     data: availabilitySlots = [],
     isLoading: availabilityLoading,
     isError: availabilityError,
+    error: availabilityQueryError,
   } = useQuery<AvailabilitySlot[]>({
     queryKey: ["availability", doctorId],
     queryFn: () => getDoctorAvailability(doctorId),
     enabled: isValidDoctorId,
+    retry: false,
   });
 
   const freeSlots = useMemo(() => {
@@ -105,6 +110,9 @@ export default function DoctorProfilePage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["availability", doctorId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["doctor", doctorId],
       });
 
       setSelectedSlotId(null);
@@ -182,7 +190,7 @@ export default function DoctorProfilePage() {
         dir="rtl"
       >
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-base font-bold text-slate-700 animate-pulse">
+          <p className="animate-pulse text-base font-bold text-slate-700">
             در حال بارگذاری اطلاعات پزشک...
           </p>
         </div>
@@ -198,7 +206,11 @@ export default function DoctorProfilePage() {
       >
         <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-8 text-center shadow-sm">
           <p className="text-base font-bold text-red-600">
-            {doctorQueryError instanceof Error
+            {doctorQueryError instanceof AxiosError
+              ? doctorQueryError.response?.data?.detail ||
+                doctorQueryError.message ||
+                "پزشک موردنظر پیدا نشد."
+              : doctorQueryError instanceof Error
               ? doctorQueryError.message
               : "پزشک موردنظر پیدا نشد."}
           </p>
@@ -216,23 +228,26 @@ export default function DoctorProfilePage() {
   return (
     <div className="min-h-screen bg-slate-50 py-8" dir="rtl">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 lg:px-6">
-        {/* Hero / Header */}
         <section className="overflow-hidden rounded-[28px] border border-cyan-100 bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 text-white shadow-[0_25px_80px_rgba(8,145,178,0.18)]">
           <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
             <div className="flex flex-col gap-5">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-lg backdrop-blur">
-                  <img
-                    src={doctor.image}
-                    alt={doctor.name}
-                    className="h-full w-full object-cover"
-                  />
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/20 bg-white/10 text-3xl font-black shadow-lg backdrop-blur">
+                  {doctor.image ? (
+                    <img
+                      src={doctor.image}
+                      alt={doctor.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    "دکتر"
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-cyan-50 backdrop-blur">
-                    <ShieldCheck className="h-4 w-4" />
-                    پزشک تأییدشده
+                    <Stethoscope className="h-4 w-4" />
+                    پزشک فعال
                   </div>
 
                   <h1 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
@@ -246,30 +261,31 @@ export default function DoctorProfilePage() {
                   <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-cyan-50/95">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
                       <MapPin className="h-4 w-4" />
-                      {doctor.city || "—"}
+                      {doctor.city || "نامشخص"}
                     </span>
 
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
-                      <Star className="h-4 w-4 fill-current" />
-                      {toPersianDigits(doctor.rating)}
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
-                      <Clock3 className="h-4 w-4" />
-                      {doctor.nextAvailable || "بدون زمان اعلام‌شده"}
-                    </span>
+                    {doctor.phone ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
+                        <Phone className="h-4 w-4" />
+                        {doctor.phone}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
 
-              {doctor.about && (
+              {doctor.about ? (
                 <p className="max-w-3xl text-sm leading-8 text-cyan-50/95 sm:text-[15px]">
                   {doctor.about}
+                </p>
+              ) : (
+                <p className="max-w-3xl text-sm leading-8 text-cyan-50/95 sm:text-[15px]">
+                  اطلاعات تکمیلی این پزشک هنوز ثبت نشده است.
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 self-start">
+            <div className="grid grid-cols-1 gap-3 self-start sm:grid-cols-2">
               <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <div className="flex items-center gap-2 text-cyan-100">
                   <Stethoscope className="h-4 w-4" />
@@ -282,31 +298,33 @@ export default function DoctorProfilePage() {
 
               <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <div className="flex items-center gap-2 text-cyan-100">
-                  <Building2 className="h-4 w-4" />
-                  <span className="text-xs font-bold">مرکز درمانی</span>
+                  <MapPin className="h-4 w-4" />
+                  <span className="text-xs font-bold">شهر</span>
                 </div>
                 <div className="mt-3 text-sm font-black leading-7 text-white">
-                  {doctor.clinic || "ثبت نشده"}
+                  {doctor.city || "نامشخص"}
                 </div>
               </div>
 
               <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <div className="flex items-center gap-2 text-cyan-100">
-                  <Users className="h-4 w-4" />
-                  <span className="text-xs font-bold">بیمار پذیرش‌شده</span>
+                  <Wallet className="h-4 w-4" />
+                  <span className="text-xs font-bold">هزینه ویزیت</span>
                 </div>
-                <div className="mt-3 text-lg font-black text-white">
-                  {toPersianDigits(doctor.patients || 0)}+
+                <div className="mt-3 text-sm font-black leading-7 text-white">
+                  {formatPrice(doctor.visit_fee)}
                 </div>
               </div>
 
               <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <div className="flex items-center gap-2 text-cyan-100">
                   <CalendarDays className="h-4 w-4" />
-                  <span className="text-xs font-bold">سابقه</span>
+                  <span className="text-xs font-bold">زمان آزاد</span>
                 </div>
-                <div className="mt-3 text-sm font-black text-white">
-                  {doctor.experience || "—"}
+                <div className="mt-3 text-sm font-black leading-7 text-white">
+                  {freeSlots.length > 0
+                    ? `${toPersianDigits(freeSlots.length)} نوبت آزاد`
+                    : "فعلاً نوبت آزادی ثبت نشده"}
                 </div>
               </div>
             </div>
@@ -314,7 +332,6 @@ export default function DoctorProfilePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          {/* Right / Booking */}
           <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -345,12 +362,18 @@ export default function DoctorProfilePage() {
 
             <form onSubmit={handleBookingSubmit} className="mt-5 space-y-5">
               {availabilityLoading ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-600 animate-pulse">
+                <div className="animate-pulse rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-600">
                   در حال دریافت زمان‌های آزاد...
                 </div>
               ) : availabilityError ? (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
-                  خطا در دریافت زمان‌های آزاد پزشک.
+                  {availabilityQueryError instanceof AxiosError
+                    ? availabilityQueryError.response?.status === 404
+                      ? "پزشک پیدا نشد."
+                      : availabilityQueryError.response?.data?.detail ||
+                        availabilityQueryError.message ||
+                        "خطا در دریافت زمان‌های آزاد پزشک."
+                    : "خطا در دریافت زمان‌های آزاد پزشک."}
                 </div>
               ) : freeSlots.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -386,7 +409,7 @@ export default function DoctorProfilePage() {
                           }`}
                         >
                           <Clock3 className="h-4 w-4" />
-                          <span className="dir-ltr">
+                          <span dir="ltr">
                             {formatTime(slot.start_time)} -{" "}
                             {formatTime(slot.end_time)}
                           </span>
@@ -417,7 +440,6 @@ export default function DoctorProfilePage() {
             </form>
           </section>
 
-          {/* Left / Doctor info */}
           <section className="space-y-6">
             <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <h2 className="text-lg font-black text-slate-900">
@@ -442,44 +464,53 @@ export default function DoctorProfilePage() {
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <div className="text-xs font-bold text-slate-500">شهر</div>
                   <div className="mt-2 text-sm font-black text-slate-900">
-                    {doctor.city || "—"}
+                    {doctor.city || "نامشخص"}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="text-xs font-bold text-slate-500">تلفن</div>
+                  <div className="mt-2 text-sm font-black text-slate-900">
+                    {doctor.phone || "ثبت نشده"}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <div className="text-xs font-bold text-slate-500">
-                    مرکز درمانی
+                    تجربه
                   </div>
                   <div className="mt-2 text-sm font-black text-slate-900">
-                    {doctor.clinic || "ثبت نشده"}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="text-xs font-bold text-slate-500">امتیاز</div>
-                  <div className="mt-2 text-sm font-black text-slate-900">
-                    {toPersianDigits(doctor.rating)}
+                    {doctor.experience || "ثبت نشده"}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="text-xs font-bold text-slate-500">سابقه</div>
+                  <div className="text-xs font-bold text-slate-500">
+                    تعداد بیماران
+                  </div>
                   <div className="mt-2 text-sm font-black text-slate-900">
-                    {doctor.experience || "—"}
+                    {toPersianDigits(doctor.patients ?? 0)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:col-span-2">
+                  <div className="text-xs font-bold text-slate-500">
+                    هزینه ویزیت
+                  </div>
+                  <div className="mt-2 text-sm font-black text-slate-900">
+                    {formatPrice(doctor.visit_fee)}
                   </div>
                 </div>
               </div>
 
-              {doctor.about && (
-                <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="text-sm font-black text-slate-900">
-                    درباره پزشک
-                  </div>
-                  <p className="mt-3 text-sm leading-8 text-slate-600">
-                    {doctor.about}
-                  </p>
+              <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div className="text-sm font-black text-slate-900">
+                  درباره پزشک
                 </div>
-              )}
+                <p className="mt-3 text-sm leading-8 text-slate-600">
+                  {doctor.about || "توضیحی برای این پزشک ثبت نشده است."}
+                </p>
+              </div>
             </div>
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
