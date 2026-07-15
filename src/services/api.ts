@@ -5,9 +5,10 @@ import type {
   AxiosResponse,
 } from "axios";
 
-const BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string) ||
-  "http://127.0.0.1:8000/api";
+const BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL?.trim() ||
+  "http://127.0.0.1:8000/api/v1"
+).replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -25,7 +26,6 @@ api.interceptors.request.use(
     const token = getStoredToken();
 
     if (token) {
-      config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -39,13 +39,16 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       localStorage.removeItem("role");
+      localStorage.removeItem("token");
+      window.dispatchEvent(new Event("auth-change"));
 
-      if (typeof window !== "undefined") {
-        const path = window.location.pathname;
-        if (path !== "/login" && path !== "/doctor-login" && path !== "/register") {
-          window.location.href = "/login";
-        }
+      const publicAuthPaths = ["/login", "/doctor-login", "/register"];
+      const currentPath = window.location.pathname;
+
+      if (!publicAuthPaths.includes(currentPath)) {
+        window.location.assign("/login");
       }
     }
 

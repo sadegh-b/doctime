@@ -1,9 +1,10 @@
-// src/services/availability.ts
 import api from "./api";
 
-export type AvailabilityStatus = "available" | "booked" | "blocked" | string;
+// ============================================================
+// 1. اینترفیس‌ها (هماهنگ با بک‌اِند)
+// ============================================================
 
-export type AvailabilityItem = {
+export interface AvailabilityItem {
   id: number;
   doctor_id: number;
   date: string;
@@ -11,145 +12,138 @@ export type AvailabilityItem = {
   end_time: string;
   is_available: boolean;
   is_booked: boolean;
-  status?: AvailabilityStatus;
-  notes?: string | null;
-  created_at?: string | null;
-};
+  status?: string;
+  notes?: string;
+}
 
-export type CreateAvailabilityPayload = {
+export interface CreateAvailabilityPayload {
   date: string;
   start_time: string;
   end_time: string;
-  notes?: string;
-};
+  duration_minutes: number; // ⚠️ این فیلد الزامی است و قبلاً جا افتاده بود
+}
 
-export type UpdateAvailabilityPayload = {
+export interface UpdateAvailabilityPayload {
   date?: string;
   start_time?: string;
   end_time?: string;
-  notes?: string;
-  is_available?: boolean;
+  status?: string;
   is_booked?: boolean;
-  status?: AvailabilityStatus;
-};
+  is_available?: boolean;
+  notes?: string;
+}
 
-export type AutoGenerateAvailabilityPayload = {
+export interface AutoGenerateAvailabilityPayload {
+  doctor_id: number;
   start_date: string;
-  days: number;
-  start_time?: string;
-  end_time?: string;
-  slot_minutes?: number;
-  break_minutes?: number;
-  weekdays?: number[];
+  end_date: string;
+  slot_duration: number;
+  work_days: number[];
+  day_start_time: string;
+  day_end_time: string;
+  break_start_time?: string;
+  break_end_time?: string;
+}
+
+export type AvailabilityListResponse = {
+  success?: boolean;
+  count?: number;
+  items?: AvailabilityItem[];
 };
 
-type AvailabilityListResponse =
-  | AvailabilityItem[]
-  | {
-      success?: boolean;
-      count?: number;
-      items?: any[];
-      data?: any[];
-      results?: any[];
-    };
+export type AvailabilitySingleResponse = {
+  success?: boolean;
+  count?: number;
+  items?: AvailabilityItem[];
+};
 
-type AvailabilitySingleResponse =
-  | AvailabilityItem
-  | {
-      success?: boolean;
-      item?: any;
-      data?: any;
-    };
+// ============================================================
+// 2. توابع نرمال‌سازی
+// ============================================================
 
-function normalizeAvailability(item: any): AvailabilityItem {
-  const isBooked = Boolean(item?.is_booked ?? false);
-
-  const isAvailable =
-    typeof item?.is_available === "boolean"
-      ? item.is_available
-      : !isBooked;
-
+export function normalizeAvailability(raw: any): AvailabilityItem {
   return {
-    id: Number(item?.id ?? 0),
-    doctor_id: Number(item?.doctor_id ?? 0),
-    date: String(item?.date ?? ""),
-    start_time: String(item?.start_time ?? ""),
-    end_time: String(item?.end_time ?? ""),
-    is_available: isAvailable,
-    is_booked: isBooked,
+    id: Number(raw.id ?? 0),
+    doctor_id: Number(raw.doctor_id ?? 0),
+    date: typeof raw.date === "string" ? raw.date : "",
+    start_time: typeof raw.start_time === "string" ? raw.start_time : "",
+    end_time: typeof raw.end_time === "string" ? raw.end_time : "",
+    is_available: raw.is_available !== undefined ? Boolean(raw.is_available) : true,
+    is_booked: Boolean(raw.is_booked),
     status:
-      item?.status ??
-      (isBooked ? "booked" : isAvailable ? "available" : "blocked"),
-    notes: item?.notes ?? null,
-    created_at: item?.created_at ?? null,
+      typeof raw.status === "string"
+        ? raw.status.trim()
+        : raw.is_booked
+        ? "booked"
+        : "available",
+    notes: typeof raw.notes === "string" ? raw.notes : undefined,
   };
 }
 
-function normalizeAvailabilityList(
-  data: AvailabilityListResponse
+export function normalizeAvailabilityList(
+  data: AvailabilityListResponse | any
 ): AvailabilityItem[] {
+  // بک‌اِند خروجی را در کلید "items" می‌فرستد
+  if (data && Array.isArray(data.items)) {
+    return data.items.map(normalizeAvailability);
+  }
+  // fallback: اگر مستقیماً آرایه بود
   if (Array.isArray(data)) {
     return data.map(normalizeAvailability);
   }
-
-  if (Array.isArray(data?.items)) {
-    return data.items.map(normalizeAvailability);
-  }
-
-  if (Array.isArray(data?.data)) {
-    return data.data.map(normalizeAvailability);
-  }
-
-  if (Array.isArray(data?.results)) {
-    return data.results.map(normalizeAvailability);
-  }
-
   return [];
 }
 
-function normalizeAvailabilitySingle(
-  data: AvailabilitySingleResponse
+export function normalizeAvailabilitySingle(
+  data: AvailabilitySingleResponse | any
 ): AvailabilityItem {
-  if (data && typeof data === "object" && "item" in data && data.item) {
-    return normalizeAvailability(data.item);
+  // بک‌اِند در پاسخ ساخت، لیست items را برمی‌گرداند (چون چند اسلات می‌سازد)
+  if (data && Array.isArray(data.items) && data.items.length > 0) {
+    return normalizeAvailability(data.items[0]);
   }
-
-  if (data && typeof data === "object" && "data" in data && data.data) {
-    return normalizeAvailability(data.data);
+  if (data && typeof data === "object" && data.id) {
+    return normalizeAvailability(data);
   }
-
+  // fallback
   return normalizeAvailability(data);
 }
 
+// ============================================================
+// 3. توابع API
+// ============================================================
+
 /**
  * گرفتن اسلات‌های یک پزشک
- * برای صفحه رزرو بیمار و همین‌طور مدیریت برنامه پزشک
  */
 export async function getDoctorAvailability(
   doctorId: number
 ): Promise<AvailabilityItem[]> {
-  const response = await api.get<AvailabilityListResponse>("/availability", {
+  const response = await api.get<AvailabilityListResponse>("availability", {
     params: { doctor_id: doctorId },
   });
+
+  // لاگ برای دیباگ
+  console.log("DEBUG: Raw Availability Response:", response.data);
+  console.log("DEBUG: Items count:", response.data?.items?.length ?? 0);
 
   return normalizeAvailabilityList(response.data);
 }
 
 /**
- * ساخت دستی یک بازه زمانی برای پزشک
+ * ساخت بازه زمانی برای پزشک
+ * ⚠️ اصلاح مهم: اضافه شدن duration_minutes
+ * ⚠️ حذف notes (بک‌اِند آن را قبول نمی‌کند)
  */
 export async function createAvailability(
   payload: CreateAvailabilityPayload
 ): Promise<AvailabilityItem> {
-  const response = await api.post<AvailabilitySingleResponse>(
-    "/availability",
-    {
-      date: payload.date,
-      start_time: payload.start_time,
-      end_time: payload.end_time,
-      notes: payload.notes?.trim() ? payload.notes.trim() : undefined,
-    }
-  );
+  const response = await api.post<AvailabilitySingleResponse>("availability", {
+    date: payload.date,
+    start_time: payload.start_time,
+    end_time: payload.end_time,
+    duration_minutes: payload.duration_minutes,
+    // notes حذف شد چون بک‌اِند این فیلد را در AvailabilityCreate ندارد
+  });
 
   return normalizeAvailabilitySingle(response.data);
 }
@@ -162,7 +156,7 @@ export async function updateAvailability(
   payload: UpdateAvailabilityPayload
 ): Promise<AvailabilityItem> {
   const response = await api.put<AvailabilitySingleResponse>(
-    `/availability/${availabilityId}`,
+    `availability/${availabilityId}`,
     {
       ...payload,
       notes:
@@ -181,7 +175,7 @@ export async function updateAvailability(
 export async function deleteAvailability(
   availabilityId: number
 ): Promise<{ success?: boolean; message?: string }> {
-  const response = await api.delete(`/availability/${availabilityId}`);
+  const response = await api.delete(`availability/${availabilityId}`);
   return response.data;
 }
 
@@ -196,7 +190,7 @@ export async function autoGenerateAvailability(
   count?: number;
   items?: AvailabilityItem[];
 }> {
-  const response = await api.post("/availability/auto-generate", payload);
+  const response = await api.post("availability/auto-generate", payload);
 
   return {
     ...response.data,

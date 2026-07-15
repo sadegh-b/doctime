@@ -1,22 +1,14 @@
-// Path: src/App.tsx
-
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 
 import Header from "./components/ui/Header";
 import Footer from "./components/ui/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// =========================
-// Patient Pages
-// =========================
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
 
-// =========================
-// Public Pages
-// =========================
 const Home = lazy(() => import("./pages/Home"));
 const Doctors = lazy(() => import("./pages/Doctors"));
 const SearchResults = lazy(() => import("./pages/SearchResults"));
@@ -26,37 +18,25 @@ const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const DoctorLogin = lazy(() => import("./pages/DoctorLogin"));
 
-// =========================
-// Doctor Pages
-// =========================
 const DoctorDashboard = lazy(
   () => import("./pages/doctor/DoctorDashboard")
 );
-
 const DoctorAppointments = lazy(
   () => import("./pages/doctor/DoctorAppointments")
 );
-
 const DoctorSchedule = lazy(
   () => import("./pages/doctor/DoctorSchedule")
 );
 
-// =========================
-// 404
-// =========================
-const NotFoundPage = lazy(
-  () => import("./pages/NotFoundPage")
-);
-
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 export default function App() {
   const location = useLocation();
-
   const [refreshHeader, setRefreshHeader] = useState(0);
 
   useEffect(() => {
     const updateHeader = () => {
-      setRefreshHeader((v) => v + 1);
+      setRefreshHeader((value) => value + 1);
     };
 
     window.addEventListener("storage", updateHeader);
@@ -68,18 +48,14 @@ export default function App() {
     };
   }, []);
 
-
   const isHome = location.pathname === "/";
-
 
   return (
     <div
       dir="rtl"
       className="min-h-screen bg-[#f8fafc] text-slate-900"
     >
-
       <Header key={refreshHeader} />
-
 
       <main
         className={
@@ -88,61 +64,40 @@ export default function App() {
             : "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
         }
       >
-
         <Suspense
           fallback={
             <div className="flex min-h-[320px] items-center justify-center">
               <div className="text-center">
-
                 <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
 
                 <p className="mt-4 font-bold text-slate-500">
                   در حال بارگذاری...
                 </p>
-
               </div>
             </div>
           }
         >
-
           <Routes>
-
-            {/* Public */}
-
+            {/* Public routes */}
             <Route path="/" element={<Home />} />
-
             <Route path="/doctors" element={<Doctors />} />
-
+            <Route path="/search" element={<SearchResults />} />
             <Route
-              path="/search"
-              element={<SearchResults />}
-            />
-
-            <Route
-              path="/doctor/:id"
+              path="/doctors/:id"
               element={<DoctorProfilePage />}
             />
 
+            {/* Authentication routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/doctor-login" element={<DoctorLogin />} />
 
-            <Route
-              path="/login"
-              element={<Login />}
-            />
+            {/* Patient registration */}
+            <Route path="/register" element={<Register />} />
 
-            <Route
-              path="/doctor-login"
-              element={<DoctorLogin />}
-            />
+            {/* Doctor registration */}
+            <Route path="/doctor-register" element={<Register />} />
 
-            <Route
-              path="/register"
-              element={<Register />}
-            />
-
-
-            {/* Patient */}
-
-
+            {/* Patient routes */}
             <Route
               path="/patient-dashboard"
               element={
@@ -151,7 +106,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
 
             <Route
               path="/patient-appointments"
@@ -162,7 +116,6 @@ export default function App() {
               }
             />
 
-
             <Route
               path="/book-appointment"
               element={
@@ -171,7 +124,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
 
             <Route
               path="/my-appointments"
@@ -182,11 +134,7 @@ export default function App() {
               }
             />
 
-
-
-            {/* Doctor */}
-
-
+            {/* Doctor routes */}
             <Route
               path="/doctor-dashboard"
               element={
@@ -195,7 +143,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
 
             <Route
               path="/doctor-appointments"
@@ -206,7 +153,6 @@ export default function App() {
               }
             />
 
-
             <Route
               path="/doctor-schedule"
               element={
@@ -216,25 +162,13 @@ export default function App() {
               }
             />
 
-
-
-            {/* 404 */}
-
-            <Route
-              path="*"
-              element={<NotFoundPage />}
-            />
-
-
+            {/* Not found */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
-
         </Suspense>
-
       </main>
 
-
       <Footer />
-
     </div>
   );
 }

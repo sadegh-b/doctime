@@ -1,5 +1,7 @@
+// مسیر فایل: src/pages/doctor/DoctorDashboard.tsx
+
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   Clock3,
@@ -14,7 +16,12 @@ import {
 import { Link } from "react-router-dom";
 
 import { getMyProfile } from "../../services/profile";
-import { getAllAppointments, type Appointment } from "../../services/appointments";
+import {
+  getDoctorAppointments,
+  cancelAppointment,
+  completeAppointment,
+  type Appointment,
+} from "../../services/appointments";
 
 function toPersianDigits(value: string | number) {
   return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -71,6 +78,8 @@ function statusClass(status?: string) {
 }
 
 export default function DoctorDashboard() {
+  const queryClient = useQueryClient();
+
   const {
     data: profile,
     isLoading: profileLoading,
@@ -89,7 +98,31 @@ export default function DoctorDashboard() {
     isFetching,
   } = useQuery<Appointment[]>({
     queryKey: ["doctor-appointments-dashboard"],
-    queryFn: getAllAppointments,
+    queryFn: getDoctorAppointments,
+  });
+
+  // عملیات اتمام نوبت
+  const completeMutation = useMutation({
+    mutationFn: (id: number) => completeAppointment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["doctor-appointments-dashboard"] });
+      alert("وضعیت نوبت با موفقیت به 'انجام شده' تغییر یافت.");
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.detail ?? "خطا در ثبت وضعیت اتمام نوبت");
+    },
+  });
+
+  // عملیات لغو نوبت
+  const cancelMutation = useMutation({
+    mutationFn: (id: number) => cancelAppointment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["doctor-appointments-dashboard"] });
+      alert("نوبت با موفقیت لغو شد.");
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.detail ?? "خطا در لغو نوبت");
+    },
   });
 
   const stats = useMemo(() => {
@@ -341,6 +374,26 @@ export default function DoctorDashboard() {
                         </div>
                       </div>
                     ) : null}
+
+                    {/* دکمه‌های کنترل وضعیت نوبت */}
+                    {appointment.status !== "completed" && appointment.status !== "cancelled" && (
+                      <div className="mt-4 flex gap-3">
+                        <button
+                          onClick={() => completeMutation.mutate(appointment.id)}
+                          disabled={completeMutation.isPending}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          {completeMutation.isPending ? "درحال انجام..." : <><CheckCircle2 size={18} /> اتمام نوبت</>}
+                        </button>
+                        <button
+                          onClick={() => cancelMutation.mutate(appointment.id)}
+                          disabled={cancelMutation.isPending}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-red-50 py-3 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {cancelMutation.isPending ? "درحال لغو..." : <><XCircle size={18} /> لغو نوبت</>}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

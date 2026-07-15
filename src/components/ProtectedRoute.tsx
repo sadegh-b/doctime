@@ -1,75 +1,39 @@
-import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
-import { getRole } from "../services/auth";
+import type { ReactNode } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { getAccessToken, getRole, type UserRole } from "../services/auth";
 
-
-type Role =
-  | "doctor"
-  | "patient"
-  | "admin";
-
-
-interface ProtectedRouteProps {
-  children: ReactNode;
-  allowedRoles?: Role[];
-}
-
+type ProtectedRouteProps = {
+  allowedRoles?: UserRole[];
+  redirectTo?: string;
+  children?: ReactNode;
+};
 
 export default function ProtectedRoute({
-  children,
   allowedRoles,
+  redirectTo = "/login",
+  children,
 }: ProtectedRouteProps) {
+  const location = useLocation();
+  const token = getAccessToken();
+  const role = getRole();
 
-
-  const token =
-    localStorage.getItem(
-      "access_token"
-    );
-
-
-  const role =
-    getRole();
-
-
-
-  if(!token){
-
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
-
+  if (!token || !role) {
+    return <Navigate to={redirectTo} replace state={{ from: location }} />;
   }
 
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    const fallbackByRole: Record<UserRole, string> = {
+      patient: "/patient-dashboard",
+      doctor: "/doctor-dashboard",
+      admin: "/admin-dashboard",
+    };
 
-
-  if(
-    allowedRoles &&
-    (
-      !role ||
-      !allowedRoles.includes(
-        role as Role
-      )
-    )
-  ){
-
-    return (
-      <Navigate
-        to="/"
-        replace
-      />
-    );
-
+    return <Navigate to={fallbackByRole[role]} replace />;
   }
 
+  if (children) {
+    return <>{children}</>;
+  }
 
-
-  return (
-    <>
-      {children}
-    </>
-  );
-
+  return <Outlet />;
 }

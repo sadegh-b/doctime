@@ -1,55 +1,121 @@
 import { useState } from "react";
+import { AxiosError } from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import { login, saveRole } from "../services/auth";
+
+import { login } from "../services/auth";
 import { getMyProfile } from "../services/profile";
+
+type ValidationDetailItem = {
+  msg?: string;
+};
+
+type ErrorResponseData = {
+  detail?: string | ValidationDetailItem[];
+  message?: string;
+};
 
 export default function Login() {
   const navigate = useNavigate();
 
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [loading, setLoading] = useState(false);
+  const [identifier, setIdentifier] = useState("");
+  const [pass, setPass] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function getLoginErrorMessage(err: AxiosError<ErrorResponseData>): string {
+    const status = err.response?.status;
+    const data = err.response?.data;
+
+    if (!err.response) {
+      return "ارتباط با سرور برقرار نشد. اینترنت و وضعیت سرور را بررسی کنید.";
+    }
+
+    if (status === 401) {
+      return "شماره موبایل / نام کاربری یا رمز عبور اشتباه است.";
+    }
+
+    if (status === 422) {
+      if (Array.isArray(data?.detail) && data.detail.length > 0) {
+        const firstError = data.detail[0];
+        if (firstError && typeof firstError.msg === "string") {
+          return firstError.msg;
+        }
+      }
+
+      return "اطلاعات واردشده صحیح نیست.";
+    }
+
+    if (status === 403) {
+      return "شما دسترسی لازم برای ورود به این بخش را ندارید.";
+    }
+
+    if (status && status >= 500) {
+      return "سرور در حال حاضر پاسخ‌گو نیست. لطفاً کمی بعد دوباره تلاش کنید.";
+    }
+
+    if (typeof data?.detail === "string" && data.detail.trim()) {
+      return data.detail;
+    }
+
+    if (typeof data?.message === "string" && data.message.trim()) {
+      return data.message;
+    }
+
+    return "ورود ناموفق بود. لطفاً دوباره تلاش کنید.";
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
 
-    const normalizedPhone = phone.trim();
-    const normalizedPassword = password.trim();
+    const normalizedIdentifier = identifier.trim();
+    const normalizedPassword = pass.trim();
 
-    if (!normalizedPhone || !normalizedPassword) {
-      setError("شماره موبایل و رمز عبور را وارد کنید");
+    if (!normalizedIdentifier) {
+      setError("شماره موبایل یا نام کاربری را وارد کنید.");
+      return;
+    }
+
+    if (!normalizedPassword) {
+      setError("رمز عبور را وارد کنید.");
       return;
     }
 
     try {
       setLoading(true);
 
-      await login(normalizedPhone, normalizedPassword);
+      await login({
+        identifier: normalizedIdentifier,
+        password: normalizedPassword,
+      });
 
       const profile = await getMyProfile();
+      localStorage.setItem("role", profile.role);
 
-      const role =
-        profile.role === "doctor"
-          ? "doctor"
-          : profile.role === "admin"
-          ? "admin"
-          : "patient";
+      const dashboardRoutes: Record<string, string> = {
+        patient: "/patient-dashboard",
+        doctor: "/doctor-dashboard",
+        admin: "/admin-dashboard",
+      };
 
-      saveRole(role);
-      window.dispatchEvent(new Event("auth-change"));
+      const dashboardPath = dashboardRoutes[profile.role];
 
-      if (role === "doctor") {
-        navigate("/doctor-dashboard");
-        return;
+      if (!dashboardPath) {
+        throw new Error(`برای نقش ${profile.role} مسیر داشبورد تعریف نشده است.`);
       }
 
-      navigate("/patient-dashboard");
-    } catch (err) {
+      window.dispatchEvent(new Event("auth-change"));
+      navigate(dashboardPath, { replace: true });
+    } catch (err: unknown) {
       console.error("LOGIN ERROR:", err);
-      setError("ورود ناموفق بود. شماره موبایل یا رمز عبور اشتباه است.");
+
+      if (err instanceof AxiosError) {
+        setError(getLoginErrorMessage(err as AxiosError<ErrorResponseData>));
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("خطای غیرمنتظره‌ای رخ داد. لطفاً دوباره تلاش کنید.");
+      }
     } finally {
       setLoading(false);
     }
@@ -58,141 +124,74 @@ export default function Login() {
   return (
     <div
       dir="rtl"
-      className="min-h-[72vh] flex items-center justify-center px-4 py-10"
+      className="min-h-screen flex items-center justify-center bg-slate-100 px-4"
     >
-      <div
-        className="
-          w-full
-          max-w-md
-          rounded-[32px]
-          border
-          border-slate-200
-          bg-white
-          p-8
-          shadow-xl
-        "
-      >
-        <div className="mb-8 text-center">
-          <div
-            className="
-              mx-auto
-              mb-5
-              flex
-              h-16
-              w-16
-              items-center
-              justify-center
-              rounded-3xl
-              bg-gradient-to-br
-              from-emerald-500
-              to-cyan-600
-              text-3xl
-              font-black
-              text-white
-            "
-          >
-            +
-          </div>
-
-          <h1 className="text-3xl font-black text-slate-900">
-            ورود به DocTime
-          </h1>
-
-          <p className="mt-3 text-sm text-slate-500">
-            ورود بیمار یا پزشک به سامانه نوبت‌دهی
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-slate-800">ورود به حساب کاربری</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            برای ادامه وارد حساب خود شوید
           </p>
         </div>
 
-        {error && (
-          <div
-            className="
-              mb-5
-              rounded-2xl
-              border
-              border-red-200
-              bg-red-50
-              p-3
-              text-sm
-              font-bold
-              text-red-600
-            "
-          >
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-black text-slate-700">
-              شماره موبایل
+            <label
+              htmlFor="identifier"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              شماره موبایل / نام کاربری
             </label>
-
             <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="09123456789"
-              className="
-                w-full
-                rounded-2xl
-                border
-                border-slate-200
-                px-4
-                py-3
-                outline-none
-                focus:border-emerald-500
-              "
+              id="identifier"
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
+              disabled={loading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100"
+              placeholder="مثلاً 09123456789"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-black text-slate-700">
+            <label
+              htmlFor="password"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
               رمز عبور
             </label>
-
             <input
+              id="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="رمز عبور"
-              className="
-                w-full
-                rounded-2xl
-                border
-                border-slate-200
-                px-4
-                py-3
-                outline-none
-                focus:border-emerald-500
-              "
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              autoComplete="current-password"
+              disabled={loading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100"
+              placeholder="رمز عبور خود را وارد کنید"
             />
           </div>
 
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
           <button
+            type="submit"
             disabled={loading}
-            className="
-              w-full
-              rounded-2xl
-              bg-gradient-to-r
-              from-emerald-600
-              to-cyan-600
-              py-3.5
-              font-black
-              text-white
-              disabled:opacity-50
-            "
+            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "در حال ورود..." : "ورود"}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-slate-500">
-          حساب ندارید؟
-          <Link
-            to="/register"
-            className="mr-2 font-black text-emerald-700"
-          >
-            ثبت‌نام
+        <div className="mt-6 text-center text-sm text-slate-600">
+          حساب کاربری ندارید؟{" "}
+          <Link to="/register" className="font-medium text-blue-600 hover:underline">
+            ثبت نام
           </Link>
         </div>
       </div>

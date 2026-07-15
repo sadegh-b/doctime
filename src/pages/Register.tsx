@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { AxiosError } from "axios";
-import { register } from "../services/auth";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
+import {
+  register,
+  type RegisterPayload,
+  type WorkShift,
+} from "../services/auth";
 
 type Role = "patient" | "doctor";
 
@@ -10,20 +14,89 @@ type RegisterErrorResponse = {
   message?: string;
 };
 
+const WEEK_DAYS = [
+  { id: "شنبه", label: "شنبه" },
+  { id: "یک‌شنبه", label: "یک‌شنبه" },
+  { id: "دوشنبه", label: "دوشنبه" },
+  { id: "سه‌شنبه", label: "سه‌شنبه" },
+  { id: "چهارشنبه", label: "چهارشنبه" },
+  { id: "پنج‌شنبه", label: "پنج‌شنبه" },
+  { id: "جمعه", label: "جمعه" },
+];
+
+const TIME_OPTIONS = [
+  "06:00",
+  "07:00",
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+  "20:00",
+  "21:00",
+  "22:00",
+];
+
 export default function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [role, setRole] = useState<Role>("patient");
+  // هماهنگ‌سازی نقش اولیه بر اساس مسیر URL جاری
+  const isDoctorRoute = location.pathname === "/doctor-register";
+  const [role, setRole] = useState<Role>(isDoctorRoute ? "doctor" : "patient");
+
+  // اگر کاربر مسیر را تغییر داد، وضعیت نقش بروزرسانی شود
+  useEffect(() => {
+    setRole(isDoctorRoute ? "doctor" : "patient");
+  }, [location.pathname, isDoctorRoute]);
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [specialty, setSpecialty] = useState("");
+  const [city, setCity] = useState("");
+  const [workShift, setWorkShift] = useState<WorkShift>("morning");
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [scheduleStartDate, setScheduleStartDate] = useState("");
+  const [morningStart, setMorningStart] = useState("08:00");
+  const [morningEnd, setMorningEnd] = useState("12:00");
+  const [afternoonStart, setAfternoonStart] = useState("16:00");
+  const [afternoonEnd, setAfternoonEnd] = useState("20:00");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
+  const isDoctor = role === "doctor";
+
+  const toggleDay = (dayId: string) => {
+    setSelectedDays((prev) =>
+      prev.includes(dayId) ? prev.filter((d) => d !== dayId) : [...prev, dayId]
+    );
+  };
+
+  function isValidIranMobile(value: string): boolean {
+    return /^09\d{9}$/.test(value);
+  }
+
+  function isValidPersianDate(value: string): boolean {
+    return /^\d{4}\/\d{2}\/\d{2}$/.test(value);
+  }
+
+  function isValidTimeRange(start: string, end: string): boolean {
+    return start < end;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -32,101 +105,165 @@ export default function Register() {
     const normalizedPhone = phone.trim();
     const normalizedEmail = email.trim();
     const normalizedPassword = password.trim();
+    const normalizedSpecialty = specialty.trim();
+    const normalizedCity = city.trim();
+    const normalizedScheduleStartDate = scheduleStartDate.trim();
 
     if (!normalizedName || !normalizedPhone || !normalizedPassword) {
-      setError("نام، شماره موبایل و رمز عبور الزامی است");
+      setError("نام، شماره موبایل و رمز عبور الزامی است.");
       return;
     }
 
-    if (normalizedPassword.length < 4) {
-      setError("رمز عبور خیلی کوتاه است");
+    if (!isValidIranMobile(normalizedPhone)) {
+      setError("شماره موبایل نامعتبر است. باید با 09 شروع شود و 11 رقم باشد.");
       return;
+    }
+
+    if (normalizedPassword.length < 6) {
+      setError("رمز عبور باید حداقل 6 کاراکتر باشد.");
+      return;
+    }
+
+    if (isDoctor) {
+      if (!normalizedSpecialty) {
+        setError("وارد کردن تخصص برای پزشکان الزامی است.");
+        return;
+      }
+
+      if (!normalizedCity) {
+        setError("وارد کردن شهر برای پزشکان الزامی است.");
+        return;
+      }
+
+      if (selectedDays.length === 0) {
+        setError("لطفاً حداقل یک روز کاری را انتخاب کنید.");
+        return;
+      }
+
+      if (!normalizedScheduleStartDate) {
+        setError("تاریخ شروع برنامه کاری پزشک الزامی است.");
+        return;
+      }
+
+      if (!isValidPersianDate(normalizedScheduleStartDate)) {
+        setError("فرمت تاریخ باید به صورت 1405/04/24 باشد.");
+        return;
+      }
+
+      if (
+        (workShift === "morning" || workShift === "both") &&
+        !isValidTimeRange(morningStart, morningEnd)
+      ) {
+        setError("ساعت شروع شیفت صبح باید از ساعت پایان کمتر باشد.");
+        return;
+      }
+
+      if (
+        (workShift === "afternoon" || workShift === "both") &&
+        !isValidTimeRange(afternoonStart, afternoonEnd)
+      ) {
+        setError("ساعت شروع شیفت عصر باید از ساعت پایان کمتر باشد.");
+        return;
+      }
     }
 
     try {
       setLoading(true);
 
-      await register({
+      const payload: RegisterPayload = {
         name: normalizedName,
         phone: normalizedPhone,
         password: normalizedPassword,
         email: normalizedEmail || undefined,
         role,
-      });
+        specialty: isDoctor ? normalizedSpecialty : undefined,
+        city: isDoctor ? normalizedCity : undefined,
+        work_shift: isDoctor ? workShift : undefined,
+        work_days: isDoctor ? selectedDays : undefined,
+        schedule_start_date: isDoctor ? normalizedScheduleStartDate : undefined,
+        morning_start:
+          isDoctor && (workShift === "morning" || workShift === "both")
+            ? morningStart
+            : undefined,
+        morning_end:
+          isDoctor && (workShift === "morning" || workShift === "both")
+            ? morningEnd
+            : undefined,
+        afternoon_start:
+          isDoctor && (workShift === "afternoon" || workShift === "both")
+            ? afternoonStart
+            : undefined,
+        afternoon_end:
+          isDoctor && (workShift === "afternoon" || workShift === "both")
+            ? afternoonEnd
+            : undefined,
+      };
 
-      setSuccess("ثبت‌نام با موفقیت انجام شد");
+      await register(payload);
 
+      setSuccess("ثبت‌نام با موفقیت انجام شد. در حال انتقال به صفحه ورود...");
+
+      // هدایت کاربر به صفحه ورود مناسب بر اساس نقش ثبت شده
       setTimeout(() => {
-        navigate("/login");
-      }, 700);
+        if (role === "doctor") {
+          navigate("/doctor-login");
+        } else {
+          navigate("/login");
+        }
+      }, 1500);
     } catch (err) {
-      if (err instanceof AxiosError) {
+      if (axios.isAxiosError(err)) {
         const data = err.response?.data as RegisterErrorResponse | undefined;
 
-        if (typeof data?.detail === "string" && data.detail.trim()) {
+        if (typeof data?.detail === "string") {
           setError(data.detail);
-        } else if (Array.isArray(data?.detail) && data.detail.length > 0) {
-          const firstMessage = data.detail[0]?.msg;
-          setError(firstMessage || "ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
-        } else if (typeof data?.message === "string" && data.message.trim()) {
+        } else if (Array.isArray(data?.detail)) {
+          const firstMessage = data.detail.find(
+            (item) => typeof item?.msg === "string"
+          )?.msg;
+          setError(firstMessage || "خطا در ثبت‌نام. لطفاً اطلاعات را بررسی کنید.");
+        } else if (typeof data?.message === "string") {
           setError(data.message);
         } else {
-          setError("ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
+          setError("خطا در ثبت‌نام. لطفاً اطلاعات را بررسی کنید.");
         }
+      } else if (err instanceof Error) {
+        setError(err.message || "ثبت‌نام انجام نشد.");
       } else {
-        setError("ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.");
+        setError("ثبت‌نام انجام نشد. ارتباط با سرور برقرار نشد.");
       }
     } finally {
       setLoading(false);
     }
   }
 
-  const isDoctor = role === "doctor";
+  const timeSelectClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-cyan-500";
 
   return (
     <div
       dir="rtl"
-      className="min-h-[72vh] flex items-center justify-center px-4 py-10"
+      className="flex min-h-[72vh] items-center justify-center px-4 py-10"
     >
       <div className="grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.05fr_0.95fr]">
         <div className="order-2 p-6 sm:p-8 lg:order-1 lg:p-10">
           <div className="mx-auto max-w-md">
             <div className="mb-8 text-center lg:text-right">
-              <div
-                className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl text-white shadow-[0_14px_34px_rgba(16,185,129,0.28)] lg:mx-0 ${
-                  isDoctor
-                    ? "bg-gradient-to-br from-cyan-600 via-sky-600 to-indigo-700"
-                    : "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600"
-                }`}
-              >
-                <svg
-                  className="h-7 w-7"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 5v14M5 12h14"
-                  />
-                </svg>
-              </div>
-
               <h1 className="text-3xl font-black tracking-tight text-slate-900">
                 ثبت‌نام در DocTime
               </h1>
-
               <p className="mt-3 text-sm leading-7 text-slate-500">
-                حساب کاربری جدید بسازید و دسترسی خود را به سامانه فعال کنید.
+                حساب کاربری جدید بسازید.
               </p>
             </div>
 
             <div className="mb-6 grid grid-cols-2 gap-3 rounded-3xl bg-slate-100 p-2">
               <button
                 type="button"
-                onClick={() => setRole("patient")}
+                onClick={() => {
+                  setRole("patient");
+                  navigate("/register");
+                }}
                 className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
                   role === "patient"
                     ? "bg-white text-emerald-700 shadow-sm"
@@ -138,7 +275,10 @@ export default function Register() {
 
               <button
                 type="button"
-                onClick={() => setRole("doctor")}
+                onClick={() => {
+                  setRole("doctor");
+                  navigate("/doctor-register");
+                }}
                 className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
                   role === "doctor"
                     ? "bg-white text-cyan-700 shadow-sm"
@@ -150,99 +290,251 @@ export default function Register() {
             </div>
 
             {error && (
-              <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+              <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+              <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-700">
                 {success}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label
-                  htmlFor="register-name"
-                  className="mb-2 block text-sm font-black text-slate-700"
-                >
+                <label className="mb-2 block text-sm font-black text-slate-700">
                   نام و نام خانوادگی
                 </label>
                 <input
-                  id="register-name"
                   type="text"
                   placeholder="نام کامل"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 text-slate-900 outline-none transition ${
+                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
                     isDoctor
-                      ? "border-slate-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                      : "border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   }`}
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="register-phone"
-                  className="mb-2 block text-sm font-black text-slate-700"
-                >
+                <label className="mb-2 block text-sm font-black text-slate-700">
                   شماره موبایل
                 </label>
                 <input
-                  id="register-phone"
                   type="tel"
-                  inputMode="numeric"
                   placeholder="09123456789"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 text-slate-900 outline-none transition ${
+                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
                     isDoctor
-                      ? "border-slate-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                      : "border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   }`}
                 />
               </div>
 
+              {isDoctor && (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-cyan-700">
+                      تخصص پزشک
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: متخصص قلب و عروق"
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-cyan-700">
+                      شهر
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: تهران"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-cyan-700">
+                      روزهای کاری هفته
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {WEEK_DAYS.map((day) => (
+                        <button
+                          key={day.id}
+                          type="button"
+                          onClick={() => toggleDay(day.id)}
+                          className={`rounded-xl border py-2 text-xs font-bold transition ${
+                            selectedDays.includes(day.id)
+                              ? "border-cyan-500 bg-cyan-500 text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-cyan-700">
+                      تاریخ شروع برنامه کاری
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 1405/04/24"
+                      value={scheduleStartDate}
+                      onChange={(e) => setScheduleStartDate(e.target.value)}
+                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    />
+                    <p className="mt-2 text-xs text-slate-500">
+                      این تاریخ فقط برای شروع برنامه کاری است.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-cyan-700">
+                      شیفت کاری
+                    </label>
+                    <select
+                      value={workShift}
+                      onChange={(e) => setWorkShift(e.target.value as WorkShift)}
+                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    >
+                      <option value="morning">صبح</option>
+                      <option value="afternoon">عصر</option>
+                      <option value="both">صبح و عصر</option>
+                    </select>
+                  </div>
+
+                  {(workShift === "morning" || workShift === "both") && (
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                      <div className="mb-3 text-xs font-bold text-slate-500">
+                        ساعت کار شیفت صبح
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-600">
+                            شروع
+                          </label>
+                          <select
+                            value={morningStart}
+                            onChange={(e) => setMorningStart(e.target.value)}
+                            className={timeSelectClass}
+                          >
+                            {TIME_OPTIONS.map((time) => (
+                              <option key={`morning-start-${time}`} value={time}>
+                                {time}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-600">
+                            پایان
+                          </label>
+                          <select
+                            value={morningEnd}
+                            onChange={(e) => setMorningEnd(e.target.value)}
+                            className={timeSelectClass}
+                          >
+                            {TIME_OPTIONS.map((time) => (
+                              <option key={`morning-end-${time}`} value={time}>
+                                {time}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(workShift === "afternoon" || workShift === "both") && (
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                      <div className="mb-3 text-xs font-bold text-slate-500">
+                        ساعت کار شیفت عصر
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-600">
+                            شروع
+                          </label>
+                          <select
+                            value={afternoonStart}
+                            onChange={(e) => setAfternoonStart(e.target.value)}
+                            className={timeSelectClass}
+                          >
+                            {TIME_OPTIONS.map((time) => (
+                              <option key={`afternoon-start-${time}`} value={time}>
+                                {time}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-600">
+                            پایان
+                          </label>
+                          <select
+                            value={afternoonEnd}
+                            onChange={(e) => setAfternoonEnd(e.target.value)}
+                            className={timeSelectClass}
+                          >
+                            {TIME_OPTIONS.map((time) => (
+                              <option key={`afternoon-end-${time}`} value={time}>
+                                {time}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
               <div>
-                <label
-                  htmlFor="register-email"
-                  className="mb-2 block text-sm font-black text-slate-700"
-                >
+                <label className="mb-2 block text-sm font-black text-slate-700">
                   ایمیل <span className="text-slate-400">(اختیاری)</span>
                 </label>
                 <input
-                  id="register-email"
                   type="email"
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 text-slate-900 outline-none transition ${
+                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
                     isDoctor
-                      ? "border-slate-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                      : "border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   }`}
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="register-password"
-                  className="mb-2 block text-sm font-black text-slate-700"
-                >
+                <label className="mb-2 block text-sm font-black text-slate-700">
                   رمز عبور
                 </label>
                 <input
-                  id="register-password"
                   type="password"
                   placeholder="رمز عبور"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 text-slate-900 outline-none transition ${
+                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
                     isDoctor
-                      ? "border-slate-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                      : "border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   }`}
                 />
               </div>
@@ -250,110 +542,58 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full rounded-2xl px-5 py-3.5 text-sm font-black text-white shadow-[0_18px_36px_rgba(16,185,129,0.24)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${
+                className={`w-full rounded-2xl px-5 py-3.5 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 ${
                   isDoctor
-                    ? "bg-gradient-to-r from-cyan-600 via-sky-600 to-indigo-700 shadow-[0_18px_36px_rgba(8,145,178,0.24)] hover:shadow-[0_22px_42px_rgba(8,145,178,0.28)]"
-                    : "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:shadow-[0_22px_42px_rgba(16,185,129,0.28)]"
+                    ? "bg-gradient-to-r from-cyan-600 to-sky-700"
+                    : "bg-gradient-to-r from-emerald-600 to-cyan-600"
                 }`}
               >
                 {loading
                   ? "در حال ثبت‌نام..."
                   : isDoctor
-                  ? "ثبت‌نام پزشک"
-                  : "ثبت‌نام بیمار"}
+                    ? "ثبت‌نام پزشک"
+                    : "ثبت‌نام بیمار"}
               </button>
             </form>
 
-            <div className="mt-6 space-y-3 text-center lg:text-right">
-              <div className="text-sm text-slate-500">
-                قبلاً حساب ساخته‌اید؟{" "}
-                <Link
-                  to="/login"
-                  className={`font-black ${
-                    isDoctor
-                      ? "text-cyan-700 hover:text-cyan-800"
-                      : "text-emerald-700 hover:text-emerald-800"
-                  }`}
-                >
-                  ورود
-                </Link>
-              </div>
+            <div className="mt-6 text-center text-sm text-slate-500 lg:text-right">
+              قبلاً حساب ساخته‌اید؟{" "}
+              <Link
+                to={isDoctor ? "/doctor-login" : "/login"}
+                className={`font-black ${
+                  isDoctor ? "text-cyan-700" : "text-emerald-700"
+                }`}
+              >
+                ورود
+              </Link>
             </div>
           </div>
         </div>
 
-        <div
-          className={`order-1 p-6 text-white sm:p-8 lg:order-2 lg:p-10 ${
-            isDoctor
-              ? "bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900"
-              : "bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950"
-          }`}
-        >
+        <div className="order-1 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-8 text-white lg:order-2 lg:p-10">
           <div className="flex h-full flex-col justify-between">
             <div>
-              <div
-                className={`inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black backdrop-blur ${
-                  isDoctor ? "text-cyan-100" : "text-emerald-100"
-                }`}
-              >
-                {isDoctor ? "Doctor Registration" : "Patient Registration"}
+              <div className="mb-6 inline-flex rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-white/90">
+                DocTime
               </div>
-
-              <h2 className="mt-6 text-3xl font-black leading-tight sm:text-4xl">
-                {isDoctor ? (
-                  <>
-                    حساب پزشک بساز
-                    <br />
-                    و پنل حرفه‌ای خودت را فعال کن
-                  </>
-                ) : (
-                  <>
-                    ثبت‌نام کن
-                    <br />
-                    و نوبت‌گیری را شروع کن
-                  </>
-                )}
+              <h2 className="text-3xl font-black leading-tight">
+                نوبت‌دهی آنلاین، ساده و سریع
               </h2>
-
-              <p className="mt-5 max-w-md text-sm leading-8 text-slate-300">
-                {isDoctor
-                  ? "پس از ثبت‌نام می‌توانید وارد پنل پزشک شوید و برنامه کاری، نوبت‌ها و زمان‌های آزاد خود را مدیریت کنید."
-                  : "پس از ثبت‌نام می‌توانید پزشک جستجو کنید، زمان خالی ببینید و نوبت خود را آنلاین ثبت و پیگیری کنید."}
+              <p className="mt-4 max-w-md text-sm leading-7 text-white/70">
+                پزشکان و بیماران می‌توانند در یک سیستم یکپارچه ثبت‌نام کنند و
+                فرایند رزرو نوبت را بدون دردسر انجام دهند.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <div className="text-xl font-black">
-                  {isDoctor ? "Profile" : "Doctors"}
-                </div>
-                <div className="mt-2 text-xs text-slate-300">
-                  {isDoctor
-                    ? "ساخت حساب و شروع فعالیت"
-                    : "جستجوی پزشک مناسب"}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <div className="text-xl font-black">
-                  {isDoctor ? "Schedule" : "Booking"}
-                </div>
-                <div className="mt-2 text-xs text-slate-300">
-                  {isDoctor
-                    ? "تنظیم برنامه و ساعت حضور"
-                    : "رزرو سریع و آنلاین"}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <div className="text-xl font-black">
-                  {isDoctor ? "Visits" : "Follow-up"}
-                </div>
-                <div className="mt-2 text-xs text-slate-300">
-                  {isDoctor
-                    ? "مدیریت نوبت‌های بیماران"
-                    : "پیگیری نوبت‌ها از پنل"}
-                </div>
+            <div className="mt-10 grid gap-4">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <p className="text-sm font-bold text-white/80">ویژگی‌ها</p>
+                <ul className="mt-3 space-y-2 text-sm leading-7 text-white/70">
+                  <li>• ثبت‌نام بیمار و پزشک</li>
+                  <li>• انتخاب روزهای حضور در مطب</li>
+                  <li>• تعریف تاریخ شروع برنامه کاری</li>
+                  <li>• تعیین ساعت کاری به صورت 24 ساعتی</li>
+                </ul>
               </div>
             </div>
           </div>

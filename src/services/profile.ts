@@ -1,4 +1,4 @@
-import api from "./api";
+import axiosClient from "../api/axiosClient";
 
 export type CurrentUserProfile = {
   id: number;
@@ -11,29 +11,52 @@ export type CurrentUserProfile = {
   address?: string | null;
 };
 
-type MeApiResponse =
-  | CurrentUserProfile
-  | {
-      success?: boolean;
-      data?: CurrentUserProfile;
-      user?: CurrentUserProfile;
-    };
+type MeApiResponse = unknown;
 
-export async function getMyProfile(): Promise<CurrentUserProfile> {
-  const response = await api.get<MeApiResponse>("/auth/me");
-  const data = response.data;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
-  if (data && typeof data === "object" && "id" in data) {
-    return data as CurrentUserProfile;
+function isValidRole(value: unknown): value is CurrentUserProfile["role"] {
+  return value === "patient" || value === "doctor" || value === "admin";
+}
+
+function isCurrentUserProfile(value: unknown): value is CurrentUserProfile {
+  if (!isObject(value)) return false;
+
+  return (
+    typeof value.id === "number" &&
+    typeof value.name === "string" &&
+    typeof value.phone === "string" &&
+    isValidRole(value.role)
+  );
+}
+
+function extractProfile(data: unknown): CurrentUserProfile | null {
+  if (isCurrentUserProfile(data)) {
+    return data;
   }
 
-  if (data && typeof data === "object" && "data" in data && data.data) {
+  if (isObject(data) && isCurrentUserProfile(data.data)) {
     return data.data;
   }
 
-  if (data && typeof data === "object" && "user" in data && data.user) {
+  if (isObject(data) && isCurrentUserProfile(data.user)) {
     return data.user;
   }
 
-  throw new Error("پروفایل کاربر دریافت نشد");
+  return null;
+}
+
+export async function getMyProfile(): Promise<CurrentUserProfile> {
+  const response = await axiosClient.get<MeApiResponse>("/auth/me");
+  const profile = extractProfile(response.data);
+
+  if (!profile) {
+    throw new Error(
+      `ساختار پروفایل نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
+    );
+  }
+
+  return profile;
 }
