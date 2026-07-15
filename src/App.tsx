@@ -5,9 +5,9 @@ import Header from "./components/ui/Header";
 import Footer from "./components/ui/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-import PatientDashboard from "./pages/patient/PatientDashboard";
-import PatientAppointments from "./pages/patient/PatientAppointments";
-import BookAppointment from "./pages/patient/BookAppointment";
+import PatientDashboard from "./pages/Patient/PatientDashboard";
+import PatientAppointments from "./pages/Patient/PatientAppointments";
+import BookAppointment from "./pages/Patient/BookAppointment";
 
 const Home = lazy(() => import("./pages/Home"));
 const Doctors = lazy(() => import("./pages/Doctors"));
@@ -69,7 +69,6 @@ export default function App() {
             <div className="flex min-h-[320px] items-center justify-center">
               <div className="text-center">
                 <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-
                 <p className="mt-4 font-bold text-slate-500">
                   در حال بارگذاری...
                 </p>
@@ -78,7 +77,6 @@ export default function App() {
           }
         >
           <Routes>
-            {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/doctors" element={<Doctors />} />
             <Route path="/search" element={<SearchResults />} />
@@ -87,17 +85,12 @@ export default function App() {
               element={<DoctorProfilePage />}
             />
 
-            {/* Authentication routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/doctor-login" element={<DoctorLogin />} />
 
-            {/* Patient registration */}
             <Route path="/register" element={<Register />} />
-
-            {/* Doctor registration */}
             <Route path="/doctor-register" element={<Register />} />
 
-            {/* Patient routes */}
             <Route
               path="/patient-dashboard"
               element={
@@ -134,7 +127,6 @@ export default function App() {
               }
             />
 
-            {/* Doctor routes */}
             <Route
               path="/doctor-dashboard"
               element={
@@ -162,7 +154,6 @@ export default function App() {
               }
             />
 
-            {/* Not found */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
