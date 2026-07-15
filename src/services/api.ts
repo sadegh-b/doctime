@@ -1,13 +1,14 @@
 import axios from "axios";
 import type {
-  InternalAxiosRequestConfig,
   AxiosError,
   AxiosResponse,
+  InternalAxiosRequestConfig,
 } from "axios";
 
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
 const BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL?.trim() ||
-  "http://127.0.0.1:8000/api/v1"
+  rawBaseUrl || "http://127.0.0.1:8000/api/v1"
 ).replace(/\/+$/, "");
 
 const api = axios.create({
@@ -18,7 +19,10 @@ const api = axios.create({
 });
 
 function getStoredToken(): string | null {
-  return localStorage.getItem("access_token");
+  return (
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token")
+  );
 }
 
 api.interceptors.request.use(
@@ -40,8 +44,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
-      localStorage.removeItem("role");
       localStorage.removeItem("token");
+      localStorage.removeItem("role");
+
       window.dispatchEvent(new Event("auth-change"));
 
       const publicAuthPaths = ["/login", "/doctor-login", "/register"];
