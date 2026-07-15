@@ -19,13 +19,13 @@ const Register = lazy(() => import("./pages/Register"));
 const DoctorLogin = lazy(() => import("./pages/DoctorLogin"));
 
 const DoctorDashboard = lazy(
-  () => import("./pages/doctor/DoctorDashboard")
+  () => import("./pages/Doctor/DoctorDashboard")
 );
 const DoctorAppointments = lazy(
-  () => import("./pages/doctor/DoctorAppointments")
+  () => import("./pages/Doctor/DoctorAppointments")
 );
 const DoctorSchedule = lazy(
-  () => import("./pages/doctor/DoctorSchedule")
+  () => import("./pages/Doctor/DoctorSchedule")
 );
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
