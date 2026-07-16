@@ -1,5 +1,3 @@
-// Path: src/components/BookingCalendar.tsx
-
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +8,7 @@ import {
   type AvailabilitySlot,
 } from "../services/availability";
 import { createAppointment } from "../services/appointments";
+import { getAccessToken } from "../services/auth";
 
 interface Props {
   doctorId: number;
@@ -73,10 +72,13 @@ export default function BookingCalendar({
     enabled: !!doctorId,
   });
 
-  const freeSlots = useMemo(
-    () => availabilitySlots.filter((slot) => slot.is_available && !slot.is_booked),
-    [availabilitySlots]
-  );
+  const freeSlots = useMemo(() => {
+    return availabilitySlots.filter((slot) => {
+      if (slot.is_booked) return false;
+      if (slot.is_available === false) return false;
+      return true;
+    });
+  }, [availabilitySlots]);
 
   const selectedSlot = useMemo(
     () => freeSlots.find((slot) => slot.id === selectedSlotId) ?? null,
@@ -114,9 +116,7 @@ export default function BookingCalendar({
   const handleBooking = () => {
     setMessage(null);
 
-    const token =
-      localStorage.getItem("token") ||
-      localStorage.getItem("access_token");
+    const token = getAccessToken();
 
     if (!token) {
       setMessage({
@@ -182,7 +182,8 @@ export default function BookingCalendar({
           )}
 
           <p className="mt-3 text-sm font-bold leading-7 text-slate-500">
-            تاریخ موردنظر را از تقویم زیر انتخاب کنید و نوبت خود را آنلاین نهایی کنید.
+            تاریخ موردنظر را از تقویم زیر انتخاب کنید و نوبت خود را آنلاین نهایی
+            کنید.
           </p>
         </div>
       )}
@@ -273,6 +274,7 @@ export default function BookingCalendar({
           </div>
 
           <button
+            type="button"
             onClick={handleBooking}
             disabled={bookingMutation.isPending || !selectedSlotId}
             className="inline-flex min-h-[52px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-600 to-teal-600 px-8 font-black text-white shadow-[0_10px_24px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(6,182,212,0.28)] disabled:cursor-not-allowed disabled:opacity-60"

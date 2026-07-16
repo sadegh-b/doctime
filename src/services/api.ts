@@ -5,6 +5,13 @@ import type {
   InternalAxiosRequestConfig,
 } from "axios";
 
+const TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+const ROLE_KEY = "role";
+const REQUEST_TIMEOUT_MS = 15000;
+
+const PUBLIC_AUTH_PATHS = ["/login", "/doctor-login", "/register"];
+
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
 const BASE_URL = (
@@ -13,16 +20,21 @@ const BASE_URL = (
 
 const api = axios.create({
   baseURL: BASE_URL,
+  timeout: REQUEST_TIMEOUT_MS,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
 function getStoredToken(): string | null {
-  return (
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("token")
-  );
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function clearAuthData(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem("token");
 }
 
 api.interceptors.request.use(
@@ -42,17 +54,13 @@ api.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
+      clearAuthData();
 
       window.dispatchEvent(new Event("auth-change"));
 
-      const publicAuthPaths = ["/login", "/doctor-login", "/register"];
       const currentPath = window.location.pathname;
 
-      if (!publicAuthPaths.includes(currentPath)) {
+      if (!PUBLIC_AUTH_PATHS.includes(currentPath)) {
         window.location.assign("/login");
       }
     }

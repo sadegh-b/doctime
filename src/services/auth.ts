@@ -95,6 +95,7 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 
   if (Array.isArray(detail) && detail.length > 0) {
     const firstItem = detail[0];
+
     if (
       firstItem &&
       typeof firstItem === "object" &&

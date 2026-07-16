@@ -1,4 +1,4 @@
-import axiosClient from "../api/axiosClient";
+import api from "./api";
 
 export type CurrentUserProfile = {
   id: number;
@@ -22,7 +22,9 @@ function isValidRole(value: unknown): value is CurrentUserProfile["role"] {
 }
 
 function isCurrentUserProfile(value: unknown): value is CurrentUserProfile {
-  if (!isObject(value)) return false;
+  if (!isObject(value)) {
+    return false;
+  }
 
   return (
     typeof value.id === "number" &&
@@ -49,7 +51,7 @@ function extractProfile(data: unknown): CurrentUserProfile | null {
 }
 
 export async function getMyProfile(): Promise<CurrentUserProfile> {
-  const response = await axiosClient.get<MeApiResponse>("/auth/me");
+  const response = await api.get<MeApiResponse>("/auth/me");
   const profile = extractProfile(response.data);
 
   if (!profile) {

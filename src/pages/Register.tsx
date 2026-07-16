@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
 import {
   register,
   type RegisterPayload,
@@ -8,11 +7,6 @@ import {
 } from "../services/auth";
 
 type Role = "patient" | "doctor";
-
-type RegisterErrorResponse = {
-  detail?: string | { msg?: string }[] | Record<string, unknown>;
-  message?: string;
-};
 
 const WEEK_DAYS = [
   { id: "شنبه", label: "شنبه" },
@@ -48,14 +42,12 @@ export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // هماهنگ‌سازی نقش اولیه بر اساس مسیر URL جاری
   const isDoctorRoute = location.pathname === "/doctor-register";
   const [role, setRole] = useState<Role>(isDoctorRoute ? "doctor" : "patient");
 
-  // اگر کاربر مسیر را تغییر داد، وضعیت نقش بروزرسانی شود
   useEffect(() => {
     setRole(isDoctorRoute ? "doctor" : "patient");
-  }, [location.pathname, isDoctorRoute]);
+  }, [isDoctorRoute]);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -203,7 +195,6 @@ export default function Register() {
 
       setSuccess("ثبت‌نام با موفقیت انجام شد. در حال انتقال به صفحه ورود...");
 
-      // هدایت کاربر به صفحه ورود مناسب بر اساس نقش ثبت شده
       setTimeout(() => {
         if (role === "doctor") {
           navigate("/doctor-login");
@@ -212,22 +203,7 @@ export default function Register() {
         }
       }, 1500);
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const data = err.response?.data as RegisterErrorResponse | undefined;
-
-        if (typeof data?.detail === "string") {
-          setError(data.detail);
-        } else if (Array.isArray(data?.detail)) {
-          const firstMessage = data.detail.find(
-            (item) => typeof item?.msg === "string"
-          )?.msg;
-          setError(firstMessage || "خطا در ثبت‌نام. لطفاً اطلاعات را بررسی کنید.");
-        } else if (typeof data?.message === "string") {
-          setError(data.message);
-        } else {
-          setError("خطا در ثبت‌نام. لطفاً اطلاعات را بررسی کنید.");
-        }
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         setError(err.message || "ثبت‌نام انجام نشد.");
       } else {
         setError("ثبت‌نام انجام نشد. ارتباط با سرور برقرار نشد.");
