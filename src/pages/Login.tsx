@@ -85,7 +85,7 @@ export default function Login() {
       setLoading(true);
 
       await login({
-        identifier: normalizedIdentifier,
+        phone: normalizedIdentifier,
         password: normalizedPassword,
       });
 

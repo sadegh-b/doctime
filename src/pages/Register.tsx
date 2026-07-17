@@ -5,6 +5,7 @@ import {
   type RegisterPayload,
   type WorkShift,
 } from "../services/auth";
+import { isTimeoutError, wakeApi } from "../services/api";
 
 type Role = "patient" | "doctor";
 
@@ -37,6 +38,10 @@ const TIME_OPTIONS = [
   "21:00",
   "22:00",
 ];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export default function Register() {
   const navigate = useNavigate();
@@ -191,19 +196,45 @@ export default function Register() {
             : undefined,
       };
 
-      await register(payload);
+      await wakeApi();
 
-      setSuccess("ثبت‌نام با موفقیت انجام شد. در حال انتقال به صفحه ورود...");
+      let lastError: unknown;
 
-      setTimeout(() => {
-        if (role === "doctor") {
-          navigate("/doctor-login");
-        } else {
-          navigate("/login");
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          await register(payload);
+
+          setSuccess("ثبت‌نام با موفقیت انجام شد. در حال انتقال به صفحه ورود...");
+
+          setTimeout(() => {
+            if (role === "doctor") {
+              navigate("/doctor-login");
+            } else {
+              navigate("/login");
+            }
+          }, 1500);
+
+          return;
+        } catch (err) {
+          lastError = err;
+
+          if (attempt === 0 && isTimeoutError(err)) {
+            await sleep(4000);
+            await wakeApi();
+            continue;
+          }
+
+          throw err;
         }
-      }, 1500);
+      }
+
+      throw lastError;
     } catch (err) {
-      if (err instanceof Error) {
+      if (isTimeoutError(err)) {
+        setError(
+          "سرور در حال آماده‌سازی بود و به‌موقع پاسخ نداد. لطفاً چند ثانیه دیگر دوباره تلاش کنید."
+        );
+      } else if (err instanceof Error) {
         setError(err.message || "ثبت‌نام انجام نشد.");
       } else {
         setError("ثبت‌نام انجام نشد. ارتباط با سرور برقرار نشد.");
@@ -284,6 +315,7 @@ export default function Register() {
                 </label>
                 <input
                   type="text"
+                  autoComplete="name"
                   placeholder="نام کامل"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -301,6 +333,7 @@ export default function Register() {
                 </label>
                 <input
                   type="tel"
+                  autoComplete="tel"
                   placeholder="09123456789"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -487,6 +520,7 @@ export default function Register() {
                 </label>
                 <input
                   type="email"
+                  autoComplete="email"
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -504,6 +538,7 @@ export default function Register() {
                 </label>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="رمز عبور"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

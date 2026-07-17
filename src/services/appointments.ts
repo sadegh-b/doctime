@@ -38,25 +38,20 @@ export interface CreateAppointmentResponse {
 function normalizeAppointment(item: any): Appointment {
   return {
     id: Number(item?.id ?? item?.appointment_id ?? 0),
-
     doctor_id: Number(item?.doctor_id ?? item?.doctor?.id ?? 0),
-
     patient_id: Number(item?.patient_id ?? item?.patient?.id ?? 0),
-
     availability_id: Number(
       item?.availability_id ??
         item?.time_slot?.id ??
         item?.availability?.id ??
         0
     ),
-
     doctor_name:
       item?.doctor_name ??
       item?.doctor?.name ??
       item?.doctor?.full_name ??
       item?.doctor?.user?.name ??
       null,
-
     doctor_specialty:
       item?.doctor_specialty ??
       item?.specialty ??
@@ -64,16 +59,13 @@ function normalizeAppointment(item: any): Appointment {
       item?.doctor?.specialization ??
       item?.doctor?.speciality ??
       null,
-
     patient_name:
       item?.patient_name ??
       item?.patient?.name ??
       item?.patient?.full_name ??
       item?.patient?.user?.name ??
       null,
-
     status: item?.status ?? "confirmed",
-
     date:
       item?.date ??
       item?.appointment_date ??
@@ -81,19 +73,16 @@ function normalizeAppointment(item: any): Appointment {
       item?.availability?.date ??
       item?.time_slot?.date ??
       null,
-
     start_time:
       item?.start_time ??
       item?.time_slot?.start_time ??
       item?.availability?.start_time ??
       null,
-
     end_time:
       item?.end_time ??
       item?.time_slot?.end_time ??
       item?.availability?.end_time ??
       null,
-
     notes: item?.notes ?? null,
   };
 }
