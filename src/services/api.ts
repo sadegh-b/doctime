@@ -22,7 +22,8 @@ const PUBLIC_AUTH_PATHS = [
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
 const BASE_URL = (
-  rawBaseUrl || "http://127.0.0.1:8000/api/v1"
+  rawBaseUrl ||
+  "https://doctime-backend-5b74.onrender.com/api/v1"
 ).replace(/\/+$/, "");
 
 // Assumes the API base URL ends with /api/v1.
