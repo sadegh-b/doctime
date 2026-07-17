@@ -14,19 +14,16 @@ const WAKE_TIMEOUT_MS = 20000;
 
 const PUBLIC_AUTH_PATHS = [
   "/login",
-  "/doctor-login",
   "/register",
+  "/doctor-login",
   "/doctor-register",
 ];
 
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-
 const BASE_URL = (
-  rawBaseUrl ||
+  import.meta.env.VITE_API_BASE_URL?.trim() ||
   "https://doctime-backend-5b74.onrender.com/api/v1"
 ).replace(/\/+$/, "");
 
-// Assumes the API base URL ends with /api/v1.
 const API_ORIGIN = BASE_URL.replace(/\/api\/v1$/, "");
 
 const api = axios.create({
@@ -34,16 +31,60 @@ const api = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
   headers: {
     "Content-Type": "application/json",
+    Accept: "application/json",
   },
 });
+
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+
+export function setAccessToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+
+export function removeAccessToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+
+export function getRole(): string | null {
+  return localStorage.getItem(ROLE_KEY);
+}
+
+
+export function setRole(role: string): void {
+  localStorage.setItem(ROLE_KEY, role);
+}
+
+
+export function removeRole(): void {
+  localStorage.removeItem(ROLE_KEY);
+}
+
+
+function clearAuthData(): void {
+  removeAccessToken();
+  removeRole();
+
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem("token");
+}
+
 
 export function isTimeoutError(error: unknown): boolean {
   return (
     axios.isAxiosError(error) &&
-    (error.code === "ECONNABORTED" ||
-      error.message.toLowerCase().includes("timeout"))
+    (
+      error.code === "ECONNABORTED" ||
+      error.message.toLowerCase().includes("timeout")
+    )
   );
 }
+
 
 export async function wakeApi(): Promise<void> {
   try {
@@ -54,26 +95,17 @@ export async function wakeApi(): Promise<void> {
       },
     });
   } catch {
-    // Ignore warm-up failures and let the real request decide.
+    // Render cold start ممکن است طول بکشد.
   }
 }
 
-function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-function clearAuthData(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(ROLE_KEY);
-
-  // Remove the legacy token key if it exists.
-  localStorage.removeItem("token");
-}
 
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-    const token = getStoredToken();
+  (
+    config: InternalAxiosRequestConfig,
+  ): InternalAxiosRequestConfig => {
+
+    const token = getAccessToken();
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -81,16 +113,25 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error: AxiosError) => Promise.reject(error)
+
+  (error: AxiosError) => {
+    return Promise.reject(error);
+  }
 );
 
+
 api.interceptors.response.use(
-  (response: AxiosResponse): AxiosResponse => response,
+  (response: AxiosResponse) => response,
+
   (error: AxiosError) => {
+
     if (error.response?.status === 401) {
+
       clearAuthData();
 
-      window.dispatchEvent(new Event("auth-change"));
+      window.dispatchEvent(
+        new Event("auth-change")
+      );
 
       const currentPath = window.location.pathname;
 
@@ -102,5 +143,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 export default api;
