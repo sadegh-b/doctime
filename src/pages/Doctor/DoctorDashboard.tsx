@@ -443,7 +443,7 @@ export default function DoctorDashboard() {
                 </Link>
 
                 <Link
-                  to="/doctor/profile"
+                  to="/doctor-profile"
                   className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-sm font-black text-slate-800 transition hover:border-cyan-400 hover:bg-cyan-50"
                 >
                   <span>مشاهده پروفایل پزشک</span>
