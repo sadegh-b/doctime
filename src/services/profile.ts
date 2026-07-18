@@ -18,9 +18,6 @@ export type UpdateProfilePayload = {
   specialty?: string | null;
   city?: string | null;
   address?: string | null;
-  // اگر بک‌اند شما فیلدهای زیر را هم ساپورت می‌کند، کامنت آن‌ها را باز کنید:
-  // experience_years?: number | null;
-  // consultation_fee?: number | null;
 };
 
 type MeApiResponse = unknown;
@@ -62,32 +59,48 @@ function extractProfile(data: unknown): CurrentUserProfile | null {
   return null;
 }
 
-// تابع گرفتن اطلاعات پروفایل (قبلی)
+// تابع گرفتن اطلاعات پروفایل
 export async function getMyProfile(): Promise<CurrentUserProfile> {
-  const response = await api.get<MeApiResponse>("/auth/me");
-  const profile = extractProfile(response.data);
+  try {
+    const response = await api.get<MeApiResponse>("/auth/me");
+    const profile = extractProfile(response.data);
 
-  if (!profile) {
-    throw new Error(
-      `ساختار پروفایل نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
-    );
+    if (!profile) {
+      throw new Error(
+        `ساختار پروفایل نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
+      );
+    }
+
+    return profile;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error("GET PROFILE ERROR:", error);
+    }
+    throw error;
   }
-
-  return profile;
 }
 
 // تابع جدید برای آپدیت اطلاعات پروفایل
 export async function updateMyProfile(data: UpdateProfilePayload): Promise<CurrentUserProfile> {
-  // معمولاً آدرس آپدیت پروفایل در متد PUT یا PATCH روی همان مسیر /auth/me یا مسیر مشابه است.
-  // اگر بک‌اند شما آدرس دیگری مثل /auth/update دارد، آدرس زیر را تغییر دهید.
-  const response = await api.put<MeApiResponse>("/auth/me", data);
-  const profile = extractProfile(response.data);
+  try {
+    if (import.meta.env.DEV) {
+      console.log("UPDATE PROFILE PAYLOAD:", data);
+    }
 
-  if (!profile) {
-    throw new Error(
-      `ساختار پروفایل آپدیت شده نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
-    );
+    const response = await api.put<MeApiResponse>("/auth/me", data);
+    const profile = extractProfile(response.data);
+
+    if (!profile) {
+      throw new Error(
+        `ساختار پروفایل آپدیت شده نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
+      );
+    }
+
+    return profile;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error("UPDATE PROFILE ERROR:", error);
+    }
+    throw error;
   }
-
-  return profile;
 }

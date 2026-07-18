@@ -68,6 +68,8 @@ interface ApiErrorResponse {
   error?: unknown;
 }
 
+type MaybeWrappedAuthUser = AuthUser | { user?: AuthUser };
+
 const ACCESS_TOKEN_KEY = "access_token";
 const ROLE_KEY = "role";
 
@@ -127,6 +129,59 @@ function extractValidationMessages(detail: unknown): string | null {
   return messages.length > 0 ? messages.join(" | ") : null;
 }
 
+function normalizeOptionalString(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function extractAuthUser(data: unknown): AuthUser | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const candidate = data as Partial<AuthResponse> & MaybeWrappedAuthUser;
+
+  if (
+    candidate.id &&
+    candidate.name &&
+    candidate.phone &&
+    candidate.role &&
+    typeof candidate.id === "number" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.phone === "string" &&
+    (candidate.role === "patient" ||
+      candidate.role === "doctor" ||
+      candidate.role === "admin")
+  ) {
+    return candidate as AuthUser;
+  }
+
+  if (
+    "user" in candidate &&
+    candidate.user &&
+    typeof candidate.user === "object" &&
+    "id" in candidate.user &&
+    "name" in candidate.user &&
+    "phone" in candidate.user &&
+    "role" in candidate.user
+  ) {
+    const user = candidate.user as AuthUser;
+
+    if (
+      typeof user.id === "number" &&
+      typeof user.name === "string" &&
+      typeof user.phone === "string" &&
+      (user.role === "patient" ||
+        user.role === "doctor" ||
+        user.role === "admin")
+    ) {
+      return user;
+    }
+  }
+
+  return null;
+}
+
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (!axios.isAxiosError(error)) {
     if (error instanceof Error && error.message.trim()) {
@@ -154,7 +209,7 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   const status = error.response.status;
   const data = error.response.data as ApiErrorResponse | undefined;
 
-  // جزئیات خطاهای داخلی سرور نباید مستقیماً به کاربر نمایش داده شوند.
+  // جزئیات خطاهای داخلی سرور نباید مستقیم به کاربر نمایش داده شوند.
   if (status >= 500) {
     return "خطای داخلی سرور رخ داده است. لاگ بک‌اند باید بررسی شود.";
   }
@@ -217,15 +272,30 @@ function normalizeRegisterPayload(
 ): NormalizedRegisterPayload {
   const role = payload.role ?? "patient";
 
+  const name = payload.name.trim();
+  const phone = payload.phone.trim();
+
+  if (!name) {
+    throw new Error("نام وارد نشده است.");
+  }
+
+  if (!phone) {
+    throw new Error("شماره موبایل وارد نشده است.");
+  }
+
+  if (!payload.password) {
+    throw new Error("رمز عبور وارد نشده است.");
+  }
+
   const body: NormalizedRegisterPayload = {
-    name: payload.name.trim(),
-    phone: payload.phone.trim(),
+    name,
+    phone,
     // رمز عبور را تغییر نده؛ فاصله می‌تواند بخشی از رمز کاربر باشد.
     password: payload.password,
     role,
   };
 
-  const email = payload.email?.trim();
+  const email = normalizeOptionalString(payload.email);
 
   if (email) {
     body.email = email;
@@ -235,13 +305,13 @@ function normalizeRegisterPayload(
     return body;
   }
 
-  const specialty = payload.specialty?.trim();
-  const city = payload.city?.trim();
-  const scheduleStartDate = payload.schedule_start_date?.trim();
-  const morningStart = payload.morning_start?.trim();
-  const morningEnd = payload.morning_end?.trim();
-  const afternoonStart = payload.afternoon_start?.trim();
-  const afternoonEnd = payload.afternoon_end?.trim();
+  const specialty = normalizeOptionalString(payload.specialty);
+  const city = normalizeOptionalString(payload.city);
+  const scheduleStartDate = normalizeOptionalString(payload.schedule_start_date);
+  const morningStart = normalizeOptionalString(payload.morning_start);
+  const morningEnd = normalizeOptionalString(payload.morning_end);
+  const afternoonStart = normalizeOptionalString(payload.afternoon_start);
+  const afternoonEnd = normalizeOptionalString(payload.afternoon_end);
 
   if (specialty) {
     body.specialty = specialty;
@@ -377,16 +447,22 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
       console.error("LOGIN ERROR MESSAGE:", error.message);
     }
 
-    throw new Error(
-      extractErrorMessage(error, "خطا در ورود"),
-    );
+    throw new Error(extractErrorMessage(error, "خطا در ورود"));
   }
 }
 
 export async function getMe(): Promise<AuthUser> {
   try {
-    const response = await api.get<AuthUser>("/auth/me");
-    return response.data;
+    const response = await api.get<unknown>("/auth/me");
+    const user = extractAuthUser(response.data);
+
+    if (!user) {
+      throw new Error(
+        `ساختار پاسخ /auth/me نامعتبر است: ${JSON.stringify(response.data)}`,
+      );
+    }
+
+    return user;
   } catch (error: unknown) {
     throw new Error(
       extractErrorMessage(error, "دریافت اطلاعات کاربر با خطا مواجه شد."),

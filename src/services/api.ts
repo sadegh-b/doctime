@@ -19,10 +19,14 @@ const PUBLIC_AUTH_PATHS = [
   "/doctor-register",
 ];
 
-const BASE_URL = (
+function normalizeBaseUrl(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+const BASE_URL = normalizeBaseUrl(
   import.meta.env.VITE_API_BASE_URL?.trim() ||
-  "https://doctime-backend-5b74.onrender.com/api/v1"
-).replace(/\/+$/, "");
+    "https://doctime-backend-5b74.onrender.com/api/v1"
+);
 
 const API_ORIGIN = BASE_URL.replace(/\/api\/v1$/, "");
 
@@ -76,10 +80,12 @@ export function isTimeoutError(error: unknown): boolean {
 
 export async function wakeApi(): Promise<void> {
   const urlsToTry = [
-    `${API_ORIGIN}/`,
-    API_ORIGIN,
+    `${BASE_URL}/health`,
     `${BASE_URL}/`,
     BASE_URL,
+    `${API_ORIGIN}/health`,
+    `${API_ORIGIN}/`,
+    API_ORIGIN,
   ];
 
   for (const url of urlsToTry) {
