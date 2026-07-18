@@ -1,3 +1,5 @@
+// مسیر قرارگیری: src/pages/Register.tsx
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -196,11 +198,13 @@ export default function Register() {
             : undefined,
       };
 
+      // ۱. ابتدا برای بیدار کردن سرور تلاش می‌کنیم تا cold start برطرف شود
       await wakeApi();
 
       let lastError: unknown;
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      // ۲. اجرای حلقه تلاش مجدد با ۲ بار شانس تلاش
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
           await register(payload);
 
@@ -218,7 +222,8 @@ export default function Register() {
         } catch (err) {
           lastError = err;
 
-          if (attempt === 0 && isTimeoutError(err)) {
+          // اگر بار اول بود و خطای timeout گرفتیم، کمی صبر کرده، دوباره تلاش می‌کنیم.
+          if (attempt === 1 && isTimeoutError(err)) {
             await sleep(4000);
             await wakeApi();
             continue;
