@@ -1,5 +1,3 @@
-// مسیر فایل: src/App.tsx
-
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
@@ -140,11 +138,7 @@ export default function App() {
             />
             <Route
               path="/my-appointments"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <PatientAppointments />
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/patient-appointments" replace />}
             />
 
             {/* Doctor Routes */}
