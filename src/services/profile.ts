@@ -1,19 +1,17 @@
-// مسیر فایل: src/services/profile.ts
-import api from "./api";
 import axios from "axios";
+import api from "./api";
 
 export type CurrentUserProfile = {
   id: number;
   name: string;
   phone: string;
   email?: string | null;
-  role: "patient" | "doctor" | "admin";
+  role: "patient" | "doctor";
   specialty?: string | null;
   city?: string | null;
   address?: string | null;
 };
 
-// تایپ داده‌های ارسالی برای ویرایش پروفایل
 export type UpdateProfilePayload = {
   name?: string;
   specialty?: string | null;
@@ -28,7 +26,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isValidRole(value: unknown): value is CurrentUserProfile["role"] {
-  return value === "patient" || value === "doctor" || value === "admin";
+  return value === "patient" || value === "doctor";
 }
 
 function isCurrentUserProfile(value: unknown): value is CurrentUserProfile {
@@ -60,7 +58,6 @@ function extractProfile(data: unknown): CurrentUserProfile | null {
   return null;
 }
 
-// تابع گرفتن اطلاعات پروفایل
 export async function getMyProfile(): Promise<CurrentUserProfile> {
   try {
     const response = await api.get<MeApiResponse>("/auth/me");
@@ -68,7 +65,7 @@ export async function getMyProfile(): Promise<CurrentUserProfile> {
 
     if (!profile) {
       throw new Error(
-        `ساختار پروفایل نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
+        `Invalid profile response shape: ${JSON.stringify(response.data)}`
       );
     }
 
@@ -81,39 +78,29 @@ export async function getMyProfile(): Promise<CurrentUserProfile> {
   }
 }
 
-// تابع جدید برای آپدیت اطلاعات پروفایل - تغییر مسیر به /users/profile برای تست
-export async function updateMyProfile(data: UpdateProfilePayload): Promise<CurrentUserProfile> {
+export async function updateMyProfile(
+  data: UpdateProfilePayload
+): Promise<CurrentUserProfile> {
   try {
     if (import.meta.env.DEV) {
       console.log("UPDATE PROFILE PAYLOAD:", data);
     }
 
-    // تست مسیر جدید بک‌اند برای ویرایش اطلاعات کاربری
-    const response = await api.put<MeApiResponse>("/users/profile", data);
+    const response = await api.patch<MeApiResponse>("/auth/me", data);
     const profile = extractProfile(response.data);
 
     if (!profile) {
       throw new Error(
-        `ساختار پروفایل آپدیت شده نامعتبر است. پاسخ سرور: ${JSON.stringify(response.data)}`
+        `Invalid updated profile response shape: ${JSON.stringify(response.data)}`
       );
     }
 
     return profile;
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      if (import.meta.env.DEV) {
-        console.error("UPDATE PROFILE ERROR STATUS:", error.response?.status);
-        console.error("UPDATE PROFILE ERROR DATA:", error.response?.data);
-        console.error("HEADERS ALLOWED:", error.response?.headers?.["allow"]);
-      }
-
-      if (error.response?.status === 405) {
-        throw new Error(
-          `خطای ۴۰۵ روی مسیر تست شده. متدهای مجاز سرور: ${error.response?.headers?.["allow"] || "نامشخص"}`
-        );
-      }
+    if (axios.isAxiosError(error) && import.meta.env.DEV) {
+      console.error("UPDATE PROFILE ERROR STATUS:", error.response?.status);
+      console.error("UPDATE PROFILE ERROR DATA:", error.response?.data);
     }
-
     throw error;
   }
 }
