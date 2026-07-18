@@ -1,4 +1,4 @@
-// مسیر فایل: src/pages/doctor/DoctorDashboard.tsx
+// مسیر فایل: src/pages/Doctor/DoctorDashboard.tsx
 
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -105,7 +105,9 @@ export default function DoctorDashboard() {
   const completeMutation = useMutation({
     mutationFn: (id: number) => completeAppointment(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctor-appointments-dashboard"] });
+      queryClient.invalidateQueries({
+        queryKey: ["doctor-appointments-dashboard"],
+      });
       alert("وضعیت نوبت با موفقیت به 'انجام شده' تغییر یافت.");
     },
     onError: (error: any) => {
@@ -117,7 +119,9 @@ export default function DoctorDashboard() {
   const cancelMutation = useMutation({
     mutationFn: (id: number) => cancelAppointment(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctor-appointments-dashboard"] });
+      queryClient.invalidateQueries({
+        queryKey: ["doctor-appointments-dashboard"],
+      });
       alert("نوبت با موفقیت لغو شد.");
     },
     onError: (error: any) => {
@@ -203,7 +207,7 @@ export default function DoctorDashboard() {
             </button>
 
             <Link
-              to="/doctor/appointments"
+              to="/doctor-appointments"
               className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-900"
             >
               نوبت‌های پزشک
@@ -296,7 +300,7 @@ export default function DoctorDashboard() {
               </div>
 
               <Link
-                to="/doctor/appointments"
+                to="/doctor-appointments"
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700"
               >
                 مشاهده همه
@@ -376,24 +380,38 @@ export default function DoctorDashboard() {
                     ) : null}
 
                     {/* دکمه‌های کنترل وضعیت نوبت */}
-                    {appointment.status !== "completed" && appointment.status !== "cancelled" && (
-                      <div className="mt-4 flex gap-3">
-                        <button
-                          onClick={() => completeMutation.mutate(appointment.id)}
-                          disabled={completeMutation.isPending}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                          {completeMutation.isPending ? "درحال انجام..." : <><CheckCircle2 size={18} /> اتمام نوبت</>}
-                        </button>
-                        <button
-                          onClick={() => cancelMutation.mutate(appointment.id)}
-                          disabled={cancelMutation.isPending}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-red-50 py-3 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-                        >
-                          {cancelMutation.isPending ? "درحال لغو..." : <><XCircle size={18} /> لغو نوبت</>}
-                        </button>
-                      </div>
-                    )}
+                    {appointment.status !== "completed" &&
+                      appointment.status !== "cancelled" && (
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            onClick={() => completeMutation.mutate(appointment.id)}
+                            disabled={completeMutation.isPending}
+                            className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {completeMutation.isPending ? (
+                              "درحال انجام..."
+                            ) : (
+                              <>
+                                <CheckCircle2 size={18} /> اتمام نوبت
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => cancelMutation.mutate(appointment.id)}
+                            disabled={cancelMutation.isPending}
+                            className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-red-50 py-3 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                          >
+                            {cancelMutation.isPending ? (
+                              "درحال لغو..."
+                            ) : (
+                              <>
+                                <XCircle size={18} /> لغو نوبت
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>
@@ -435,7 +453,7 @@ export default function DoctorDashboard() {
 
               <div className="mt-5 grid gap-3">
                 <Link
-                  to="/doctor/appointments"
+                  to="/doctor-appointments"
                   className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-sm font-black text-slate-800 transition hover:border-cyan-400 hover:bg-cyan-50"
                 >
                   <span>مشاهده نوبت‌های پزشک</span>

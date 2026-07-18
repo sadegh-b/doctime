@@ -20,23 +20,12 @@ const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const DoctorLogin = lazy(() => import("./pages/DoctorLogin"));
 
-const DoctorDashboard = lazy(
-  () => import("./pages/Doctor/DoctorDashboard")
-);
-const DoctorAppointments = lazy(
-  () => import("./pages/Doctor/DoctorAppointments")
-);
-const DoctorSchedule = lazy(
-  () => import("./pages/Doctor/DoctorSchedule")
-);
+const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
+const DoctorAppointments = lazy(() => import("./pages/Doctor/DoctorAppointments"));
+const DoctorSchedule = lazy(() => import("./pages/Doctor/DoctorSchedule"));
 
-// صفحات پروفایل واقعی
-const PatientProfile = lazy(
-  () => import("./pages/Patient/PatientProfile")
-);
-const DoctorProfile = lazy(
-  () => import("./pages/Doctor/DoctorProfile")
-);
+const PatientProfile = lazy(() => import("./pages/Patient/PatientProfile"));
+const DoctorProfile = lazy(() => import("./pages/Doctor/DoctorProfile"));
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
@@ -80,9 +69,7 @@ export default function App() {
 
       <main
         className={
-          isHome
-            ? ""
-            : "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+          isHome ? "" : "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
         }
       >
         <Suspense
@@ -90,9 +77,7 @@ export default function App() {
             <div className="flex min-h-[320px] items-center justify-center">
               <div className="text-center">
                 <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-                <p className="mt-4 font-bold text-slate-500">
-                  در حال بارگذاری...
-                </p>
+                <p className="mt-4 font-bold text-slate-500">در حال بارگذاری...</p>
               </div>
             </div>
           }
@@ -129,7 +114,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/patient-profile"
               element={
@@ -138,7 +122,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/patient-appointments"
               element={
@@ -147,7 +130,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/book-appointment"
               element={
@@ -156,7 +138,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/my-appointments"
               element={
@@ -175,7 +156,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/doctor-profile"
               element={
@@ -184,7 +164,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/doctor-appointments"
               element={
@@ -193,7 +172,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/doctor-schedule"
               element={
