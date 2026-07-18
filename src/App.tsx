@@ -1,3 +1,5 @@
+// مسیر فایل: src/App.tsx
+
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
@@ -28,17 +30,25 @@ const DoctorSchedule = lazy(
   () => import("./pages/Doctor/DoctorSchedule")
 );
 
+// صفحات پروفایل واقعی
+const PatientProfile = lazy(
+  () => import("./pages/Patient/PatientProfile")
+);
+const DoctorProfile = lazy(
+  () => import("./pages/Doctor/DoctorProfile")
+);
+
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 function ProfileRedirect() {
   const role = localStorage.getItem("role");
 
   if (role === "doctor") {
-    return <Navigate to="/doctor-dashboard" replace />;
+    return <Navigate to="/doctor-profile" replace />;
   }
 
   if (role === "patient") {
-    return <Navigate to="/patient-dashboard" replace />;
+    return <Navigate to="/patient-profile" replace />;
   }
 
   return <Navigate to="/login" replace />;
@@ -65,10 +75,7 @@ export default function App() {
   const isHome = location.pathname === "/";
 
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-[#f8fafc] text-slate-900"
-    >
+    <div dir="rtl" className="min-h-screen bg-[#f8fafc] text-slate-900">
       <Header key={refreshHeader} />
 
       <main
@@ -91,20 +98,19 @@ export default function App() {
           }
         >
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/doctors" element={<Doctors />} />
             <Route path="/search" element={<SearchResults />} />
-            <Route
-              path="/doctors/:id"
-              element={<DoctorProfilePage />}
-            />
+            <Route path="/doctors/:id" element={<DoctorProfilePage />} />
 
+            {/* Auth Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/doctor-login" element={<DoctorLogin />} />
-
             <Route path="/register" element={<Register />} />
             <Route path="/doctor-register" element={<Register />} />
 
+            {/* Shared Profile Entry */}
             <Route
               path="/profile"
               element={
@@ -114,29 +120,21 @@ export default function App() {
               }
             />
 
-            <Route
-              path="/patient-profile"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <Navigate to="/patient-dashboard" replace />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/doctor-profile"
-              element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
-                  <Navigate to="/doctor-dashboard" replace />
-                </ProtectedRoute>
-              }
-            />
-
+            {/* Patient Routes */}
             <Route
               path="/patient-dashboard"
               element={
                 <ProtectedRoute allowedRoles={["patient"]}>
                   <PatientDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/patient-profile"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <PatientProfile />
                 </ProtectedRoute>
               }
             />
@@ -168,11 +166,21 @@ export default function App() {
               }
             />
 
+            {/* Doctor Routes */}
             <Route
               path="/doctor-dashboard"
               element={
                 <ProtectedRoute allowedRoles={["doctor"]}>
                   <DoctorDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/doctor-profile"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <DoctorProfile />
                 </ProtectedRoute>
               }
             />
@@ -195,6 +203,7 @@ export default function App() {
               }
             />
 
+            {/* Fallback */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
