@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import Header from "./components/ui/Header";
 import Footer from "./components/ui/Footer";
@@ -29,6 +29,20 @@ const DoctorSchedule = lazy(
 );
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+
+function ProfileRedirect() {
+  const role = localStorage.getItem("role");
+
+  if (role === "doctor") {
+    return <Navigate to="/doctor-dashboard" replace />;
+  }
+
+  if (role === "patient") {
+    return <Navigate to="/patient-dashboard" replace />;
+  }
+
+  return <Navigate to="/login" replace />;
+}
 
 export default function App() {
   const location = useLocation();
@@ -90,6 +104,33 @@ export default function App() {
 
             <Route path="/register" element={<Register />} />
             <Route path="/doctor-register" element={<Register />} />
+
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute allowedRoles={["patient", "doctor"]}>
+                  <ProfileRedirect />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/patient-profile"
+              element={
+                <ProtectedRoute allowedRoles={["patient"]}>
+                  <Navigate to="/patient-dashboard" replace />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/doctor-profile"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <Navigate to="/doctor-dashboard" replace />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="/patient-dashboard"
