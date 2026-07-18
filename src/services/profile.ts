@@ -1,5 +1,6 @@
 // مسیر فایل: src/services/profile.ts
 import api from "./api";
+import axios from "axios";
 
 export type CurrentUserProfile = {
   id: number;
@@ -80,14 +81,15 @@ export async function getMyProfile(): Promise<CurrentUserProfile> {
   }
 }
 
-// تابع جدید برای آپدیت اطلاعات پروفایل
+// تابع جدید برای آپدیت اطلاعات پروفایل - تغییر مسیر به /users/profile برای تست
 export async function updateMyProfile(data: UpdateProfilePayload): Promise<CurrentUserProfile> {
   try {
     if (import.meta.env.DEV) {
       console.log("UPDATE PROFILE PAYLOAD:", data);
     }
 
-    const response = await api.put<MeApiResponse>("/auth/me", data);
+    // تست مسیر جدید بک‌اند برای ویرایش اطلاعات کاربری
+    const response = await api.put<MeApiResponse>("/users/profile", data);
     const profile = extractProfile(response.data);
 
     if (!profile) {
@@ -97,10 +99,21 @@ export async function updateMyProfile(data: UpdateProfilePayload): Promise<Curre
     }
 
     return profile;
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error("UPDATE PROFILE ERROR:", error);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      if (import.meta.env.DEV) {
+        console.error("UPDATE PROFILE ERROR STATUS:", error.response?.status);
+        console.error("UPDATE PROFILE ERROR DATA:", error.response?.data);
+        console.error("HEADERS ALLOWED:", error.response?.headers?.["allow"]);
+      }
+
+      if (error.response?.status === 405) {
+        throw new Error(
+          `خطای ۴۰۵ روی مسیر تست شده. متدهای مجاز سرور: ${error.response?.headers?.["allow"] || "نامشخص"}`
+        );
+      }
     }
+
     throw error;
   }
 }
