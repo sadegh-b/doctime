@@ -1,5 +1,3 @@
-// مسیر قرارگیری: src/pages/Register.tsx
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -43,6 +41,48 @@ const TIME_OPTIONS = [
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizePersianDay(day: string): string {
+  return day
+    .trim()
+    .replace(/\u200c/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function getErrorMessage(err: unknown): string {
+  if (isTimeoutError(err)) {
+    return "سرور در حال آماده‌سازی بود و به‌موقع پاسخ نداد. لطفاً چند ثانیه دیگر دوباره تلاش کنید.";
+  }
+
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "response" in err
+  ) {
+    const response = (err as {
+      response?: {
+        data?: {
+          detail?: string;
+          message?: string;
+        };
+      };
+    }).response;
+
+    if (response?.data?.detail) {
+      return response.data.detail;
+    }
+
+    if (response?.data?.message) {
+      return response.data.message;
+    }
+  }
+
+  if (err instanceof Error) {
+    return err.message || "ثبت‌نام انجام نشد.";
+  }
+
+  return "ثبت‌نام انجام نشد. ارتباط با سرور برقرار نشد.";
 }
 
 export default function Register() {
@@ -107,6 +147,7 @@ export default function Register() {
     const normalizedSpecialty = specialty.trim();
     const normalizedCity = city.trim();
     const normalizedScheduleStartDate = scheduleStartDate.trim();
+    const normalizedSelectedDays = selectedDays.map(normalizePersianDay);
 
     if (!normalizedName || !normalizedPhone || !normalizedPassword) {
       setError("نام، شماره موبایل و رمز عبور الزامی است.");
@@ -134,7 +175,7 @@ export default function Register() {
         return;
       }
 
-      if (selectedDays.length === 0) {
+      if (normalizedSelectedDays.length === 0) {
         setError("لطفاً حداقل یک روز کاری را انتخاب کنید.");
         return;
       }
@@ -178,7 +219,7 @@ export default function Register() {
         specialty: isDoctor ? normalizedSpecialty : undefined,
         city: isDoctor ? normalizedCity : undefined,
         work_shift: isDoctor ? workShift : undefined,
-        work_days: isDoctor ? selectedDays : undefined,
+        work_days: isDoctor ? normalizedSelectedDays : undefined,
         schedule_start_date: isDoctor ? normalizedScheduleStartDate : undefined,
         morning_start:
           isDoctor && (workShift === "morning" || workShift === "both")
@@ -198,12 +239,12 @@ export default function Register() {
             : undefined,
       };
 
-      // ۱. ابتدا برای بیدار کردن سرور تلاش می‌کنیم تا cold start برطرف شود
+      console.log("REGISTER PAYLOAD:", payload);
+
       await wakeApi();
 
       let lastError: unknown;
 
-      // ۲. اجرای حلقه تلاش مجدد با ۲ بار شانس تلاش
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
           await register(payload);
@@ -222,7 +263,8 @@ export default function Register() {
         } catch (err) {
           lastError = err;
 
-          // اگر بار اول بود و خطای timeout گرفتیم، کمی صبر کرده، دوباره تلاش می‌کنیم.
+          console.error(`REGISTER ATTEMPT ${attempt} FAILED:`, err);
+
           if (attempt === 1 && isTimeoutError(err)) {
             await sleep(4000);
             await wakeApi();
@@ -235,15 +277,8 @@ export default function Register() {
 
       throw lastError;
     } catch (err) {
-      if (isTimeoutError(err)) {
-        setError(
-          "سرور در حال آماده‌سازی بود و به‌موقع پاسخ نداد. لطفاً چند ثانیه دیگر دوباره تلاش کنید."
-        );
-      } else if (err instanceof Error) {
-        setError(err.message || "ثبت‌نام انجام نشد.");
-      } else {
-        setError("ثبت‌نام انجام نشد. ارتباط با سرور برقرار نشد.");
-      }
+      setError(getErrorMessage(err));
+      console.error("REGISTER FINAL ERROR:", err);
     } finally {
       setLoading(false);
     }
