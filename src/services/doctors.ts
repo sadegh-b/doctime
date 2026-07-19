@@ -5,6 +5,7 @@ export interface Doctor {
   user_id: number;
   name?: string | null;
   specialty: string;
+  work_shift?: string | null;
   city?: string | null;
   address?: string | null;
   bio?: string | null;
@@ -33,15 +34,12 @@ function normalizeDoctor(item: any): Doctor {
     user_id: Number(item?.user_id ?? item?.user?.id ?? 0),
     name: item?.name ?? item?.user_name ?? item?.full_name ?? null,
     specialty: item?.specialty ?? "تخصص ثبت نشده",
+    work_shift: item?.work_shift ?? null,
     city: item?.city ?? null,
     address: item?.address ?? null,
     bio: item?.bio ?? item?.about ?? null,
-    experience_years: Number(
-      item?.experience_years ?? item?.experience ?? 0
-    ),
-    consultation_fee: Number(
-      item?.consultation_fee ?? item?.visit_fee ?? 0
-    ),
+    experience_years: Number(item?.experience_years ?? item?.experience ?? 0),
+    consultation_fee: Number(item?.consultation_fee ?? item?.visit_fee ?? 0),
     phone: item?.phone ?? item?.phone_number ?? null,
     image: item?.image ?? item?.avatar ?? item?.profile_image ?? null,
   };
@@ -77,21 +75,11 @@ function normalizeSingleDoctorResponse(data: any): Doctor {
 
 export async function getDoctors(): Promise<Doctor[]> {
   const response = await api.get<DoctorListResponse | Doctor[]>("/doctors");
-
-  const doctors = normalizeDoctorsResponse(response.data);
-
-  if (!Array.isArray(doctors)) {
-    throw new Error("داده پزشکان از API معتبر نیست.");
-  }
-
-  return doctors;
+  return normalizeDoctorsResponse(response.data);
 }
 
 export async function getDoctorById(id: number): Promise<Doctor> {
-  const response = await api.get<DoctorDetailsResponse | Doctor>(
-    `/doctors/${id}`
-  );
-
+  const response = await api.get<DoctorDetailsResponse | Doctor>(`/doctors/${id}`);
   const doctor = normalizeSingleDoctorResponse(response.data);
 
   if (!doctor.id) {
@@ -104,12 +92,9 @@ export async function getDoctorById(id: number): Promise<Doctor> {
 export async function searchDoctors(
   params?: Record<string, string | number>
 ): Promise<Doctor[]> {
-  const response = await api.get<DoctorListResponse | Doctor[]>(
-    "/doctors/search",
-    {
-      params,
-    }
-  );
+  const response = await api.get<DoctorListResponse | Doctor[]>("/doctors/search", {
+    params,
+  });
 
   return normalizeDoctorsResponse(response.data);
 }
