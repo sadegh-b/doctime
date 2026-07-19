@@ -3,9 +3,11 @@
 import api from "./api";
 
 // تعریف نقش‌های کاربر
+// English: User Role (یوزِر رول) - نقش کاربر در سیستم
 export type UserRole = "patient" | "doctor";
 
-// ساختار پروفایل کاربر
+// ساختار کامل پروفایل کاربر برای دریافت از سرور
+// English: Interface (اینتِرفِیس) - ساختار یا قالبی برای داده‌ها
 export interface CurrentUserProfile {
   id: number;
   name: string;
@@ -15,10 +17,14 @@ export interface CurrentUserProfile {
   specialty?: string | null;
   city?: string | null;
   address?: string | null;
+  bio?: string | null;
+  experience_years?: number | null;
+  consultation_fee?: number | null;
   work_shift?: string | null;
 }
 
-// این همان بخشی است که اکسپورت نشده بود و باعث خطا می‌شد
+// ساختار داده‌ها برای به‌روزرسانی (ارسال به سرور)
+// English: Payload (پِی‌لود) - بدنه اصلی داده‌هایی که به سرور ارسال می‌شود
 export interface UpdateProfilePayload {
   name?: string;
   specialty?: string;
@@ -29,15 +35,21 @@ export interface UpdateProfilePayload {
   consultation_fee?: number;
 }
 
-// تابع گرفتن پروفایل من
+/**
+ * دریافت اطلاعات پروفایل کاربر فعلی
+ * GET /api/v1/auth/me
+ */
 export async function getMyProfile(): Promise<CurrentUserProfile> {
   const response = await api.get<CurrentUserProfile>("/auth/me");
   return response.data;
 }
 
-// تابع به‌روزرسانی پروفایل
+/**
+ * به‌روزرسانی اطلاعات پروفایل
+ * PATCH /api/v1/auth/me
+ */
 export async function updateMyProfile(payload: UpdateProfilePayload): Promise<CurrentUserProfile> {
-  // بر اساس منطق بک‌اند شما، درخواست به /auth/me ارسال می‌شود
+  // English: Patch Request (پَچ ریکوئِست) - درخواستی برای تغییر جزئی در داده‌ها
   const response = await api.patch<CurrentUserProfile>("/auth/me", payload);
   return response.data;
 }
