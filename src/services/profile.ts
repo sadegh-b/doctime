@@ -1,112 +1,43 @@
+// src/services/profile.ts
+
 import api from "./api";
 
+// تعریف نقش‌های کاربر
 export type UserRole = "patient" | "doctor";
 
-export type CurrentUserProfile = {
+// ساختار پروفایل کاربر
+export interface CurrentUserProfile {
   id: number;
   name: string;
   phone: string;
   email?: string | null;
   role: UserRole;
   specialty?: string | null;
-  work_shift?: string | null;
   city?: string | null;
   address?: string | null;
-  bio?: string | null;
-  experience_years?: number;
-  consultation_fee?: number;
-};
+  work_shift?: string | null;
+}
 
-export type UpdateProfilePayload = {
+// این همان بخشی است که اکسپورت نشده بود و باعث خطا می‌شد
+export interface UpdateProfilePayload {
   name?: string;
-  specialty?: string | null;
-  work_shift?: string | null;
-  city?: string | null;
-  address?: string | null;
-  bio?: string | null;
+  specialty?: string;
+  city?: string;
+  address?: string;
+  bio?: string;
   experience_years?: number;
   consultation_fee?: number;
-};
-
-type ApiResponse = {
-  success?: boolean;
-  data?: unknown;
-  user?: unknown;
-};
-
-function isObject(
-  value: unknown
-): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
-function isValidRole(
-  value: unknown
-): value is UserRole {
-  return value === "patient" || value === "doctor";
-}
-
-function isCurrentUserProfile(
-  value: unknown
-): value is CurrentUserProfile {
-  if (!isObject(value)) {
-    return false;
-  }
-
-  return (
-    typeof value.id === "number" &&
-    typeof value.name === "string" &&
-    typeof value.phone === "string" &&
-    isValidRole(value.role)
-  );
-}
-
-function extractProfile(
-  responseData: unknown
-): CurrentUserProfile {
-  if (isCurrentUserProfile(responseData)) {
-    return responseData;
-  }
-
-  if (isObject(responseData)) {
-    if (isCurrentUserProfile(responseData.data)) {
-      return responseData.data;
-    }
-
-    if (isCurrentUserProfile(responseData.user)) {
-      return responseData.user;
-    }
-  }
-
-  throw new Error(
-    `Invalid profile response: ${JSON.stringify(responseData)}`
-  );
-}
-
+// تابع گرفتن پروفایل من
 export async function getMyProfile(): Promise<CurrentUserProfile> {
-  const response = await api.get<ApiResponse | CurrentUserProfile>(
-    "/auth/me"
-  );
-
-  return extractProfile(response.data);
+  const response = await api.get<CurrentUserProfile>("/auth/me");
+  return response.data;
 }
 
-export async function updateMyProfile(
-  payload: UpdateProfilePayload
-): Promise<CurrentUserProfile> {
-  const currentProfile = await getMyProfile();
-
-  if (currentProfile.role === "doctor") {
-    const response = await api.patch<
-      ApiResponse | CurrentUserProfile
-    >("/doctors/me", payload);
-
-    return extractProfile(response.data);
-  }
-
-  const response = await api.patch<
-    ApiResponse | CurrentUserProfile
-  >("/users/me", payload);
-
-  return extractProfile(response.data);
+// تابع به‌روزرسانی پروفایل
+export async function updateMyProfile(payload: UpdateProfilePayload): Promise<CurrentUserProfile> {
+  // بر اساس منطق بک‌اند شما، درخواست به /auth/me ارسال می‌شود
+  const response = await api.patch<CurrentUserProfile>("/auth/me", payload);
+  return response.data;
 }
