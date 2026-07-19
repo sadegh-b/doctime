@@ -392,3 +392,28 @@ export function logoutUser(redirectToLogin = true): void {
 }
 
 export default api;
+export function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const possibleError = error as {
+    code?: unknown;
+    message?: unknown;
+    name?: unknown;
+  };
+
+  const code = typeof possibleError.code === "string" ? possibleError.code : "";
+  const message =
+    typeof possibleError.message === "string" ? possibleError.message.toLowerCase() : "";
+  const name = typeof possibleError.name === "string" ? possibleError.name : "";
+
+  return (
+    code === "ECONNABORTED" ||
+    code === "ETIMEDOUT" ||
+    name === "AbortError" ||
+    message.includes("timeout") ||
+    message.includes("network error") ||
+    message.includes("request aborted")
+  );
+}
