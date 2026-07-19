@@ -58,6 +58,31 @@ function extractProfile(data: unknown): CurrentUserProfile | null {
   return null;
 }
 
+function isAxios404(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404;
+}
+
+async function updateProfileWithRoute(
+  method: "put" | "patch",
+  path: string,
+  data: UpdateProfilePayload
+): Promise<CurrentUserProfile> {
+  const response =
+    method === "put"
+      ? await api.put<MeApiResponse>(path, data)
+      : await api.patch<MeApiResponse>(path, data);
+
+  const profile = extractProfile(response.data);
+
+  if (!profile) {
+    throw new Error(
+      `Invalid updated profile response shape: ${JSON.stringify(response.data)}`
+    );
+  }
+
+  return profile;
+}
+
 export async function getMyProfile(): Promise<CurrentUserProfile> {
   try {
     const response = await api.get<MeApiResponse>("/auth/me");
@@ -86,16 +111,55 @@ export async function updateMyProfile(
       console.log("UPDATE PROFILE PAYLOAD:", data);
     }
 
-    const response = await api.patch<MeApiResponse>("/auth/me", data);
-    const profile = extractProfile(response.data);
+    // Try to detect the current role so we can hit the correct backend route.
+    let currentRole: CurrentUserProfile["role"] | null = null;
 
-    if (!profile) {
-      throw new Error(
-        `Invalid updated profile response shape: ${JSON.stringify(response.data)}`
-      );
+    try {
+      const currentProfile = await getMyProfile();
+      currentRole = currentProfile.role;
+    } catch {
+      currentRole = null;
     }
 
-    return profile;
+    const routes: Array<{ method: "put" | "patch"; path: string }> =
+      currentRole === "doctor"
+        ? [
+            { method: "put", path: "/doctors/me" },
+            { method: "patch", path: "/auth/me" },
+          ]
+        : currentRole === "patient"
+          ? [
+              { method: "put", path: "/users/me" },
+              { method: "patch", path: "/auth/me" },
+            ]
+          : [
+              { method: "put", path: "/doctors/me" },
+              { method: "put", path: "/users/me" },
+              { method: "patch", path: "/auth/me" },
+            ];
+
+    let lastError: unknown = null;
+
+    for (const route of routes) {
+      try {
+        return await updateProfileWithRoute(route.method, route.path, data);
+      } catch (error) {
+        lastError = error;
+
+        // Only retry on 404; other errors are real failures.
+        if (!isAxios404(error)) {
+          throw error;
+        }
+
+        if (import.meta.env.DEV) {
+          console.warn(
+            `UPDATE PROFILE 404: ${route.method.toUpperCase()} ${route.path}`
+          );
+        }
+      }
+    }
+
+    throw lastError ?? new Error("Unable to update profile");
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && import.meta.env.DEV) {
       console.error("UPDATE PROFILE ERROR STATUS:", error.response?.status);
