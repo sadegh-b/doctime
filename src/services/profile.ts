@@ -58,8 +58,11 @@ function extractProfile(data: unknown): CurrentUserProfile | null {
   return null;
 }
 
-function isAxios404(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.response?.status === 404;
+function isAxiosRetryable(error: unknown): boolean {
+  return (
+    axios.isAxiosError(error) &&
+    (error.response?.status === 404 || error.response?.status === 405)
+  );
 }
 
 async function updateProfileWithRoute(
@@ -111,7 +114,6 @@ export async function updateMyProfile(
       console.log("UPDATE PROFILE PAYLOAD:", data);
     }
 
-    // Try to detect the current role so we can hit the correct backend route.
     let currentRole: CurrentUserProfile["role"] | null = null;
 
     try {
@@ -124,16 +126,20 @@ export async function updateMyProfile(
     const routes: Array<{ method: "put" | "patch"; path: string }> =
       currentRole === "doctor"
         ? [
+            { method: "patch", path: "/doctors/me" },
             { method: "put", path: "/doctors/me" },
             { method: "patch", path: "/auth/me" },
           ]
         : currentRole === "patient"
           ? [
+              { method: "patch", path: "/users/me" },
               { method: "put", path: "/users/me" },
               { method: "patch", path: "/auth/me" },
             ]
           : [
+              { method: "patch", path: "/doctors/me" },
               { method: "put", path: "/doctors/me" },
+              { method: "patch", path: "/users/me" },
               { method: "put", path: "/users/me" },
               { method: "patch", path: "/auth/me" },
             ];
@@ -146,14 +152,13 @@ export async function updateMyProfile(
       } catch (error) {
         lastError = error;
 
-        // Only retry on 404; other errors are real failures.
-        if (!isAxios404(error)) {
+        if (!isAxiosRetryable(error)) {
           throw error;
         }
 
         if (import.meta.env.DEV) {
           console.warn(
-            `UPDATE PROFILE 404: ${route.method.toUpperCase()} ${route.path}`
+            `UPDATE PROFILE RETRY: ${route.method.toUpperCase()} ${route.path}`
           );
         }
       }
