@@ -1,8 +1,20 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  Search,
+  MapPin,
+  Stethoscope,
+  ChevronDown,
+  ArrowLeft,
+  Sparkles,
+  Newspaper,
+  HeartPulse,
+  Pill,
+} from "lucide-react";
+
 import { PROVINCES_CITIES } from "../data/provinces";
 import { specialties } from "../data/specialties";
-import { TOP_DOCTORS, ARTICLES } from "../data/mockData";
+import { TOP_DOCTORS } from "../data/mockData";
 import BookingCalendar from "../components/BookingCalendar";
 import SafeImage from "../components/common/SafeImage";
 
@@ -12,84 +24,98 @@ type RevealKey =
   | "services"
   | "doctors"
   | "quick-booking"
-  | "articles"
-  | "cta";
+  | "articles";
 
 const HOME_SERVICES = [
   {
     id: 1,
     title: "نوبت پزشکان",
     desc: "رزرو نوبت حضوری پزشکان متخصص، عمومی و فوق تخصص",
-    icon: "🩺",
+    icon: <Stethoscope size={28} className="text-blue-600" />,
     href: "/doctors",
-    badge: "حضوری + آنلاین",
   },
   {
     id: 2,
     title: "کلینیک",
     desc: "مشاهده کلینیک‌ها، خدمات درمانی و رزرو نوبت",
-    icon: "🏥",
+    icon: <MapPin size={28} className="text-blue-600" />,
     href: "/clinics",
-    badge: "مراکز درمانی",
   },
   {
     id: 3,
     title: "آزمایشگاه",
     desc: "جستجوی آزمایشگاه‌ها و دریافت نوبت خدمات آزمایش",
-    icon: "🧪",
+    icon: <Search size={28} className="text-blue-600" />,
     href: "/labs",
-    badge: "آزمایش و چکاپ",
-  },
-  {
-    id: 4,
-    title: "بیمارستان",
-    desc: "یافتن بیمارستان‌ها، مراکز تخصصی و خدمات بستری",
-    icon: "🏨",
-    href: "/hospitals",
-    badge: "مراکز بیمارستانی",
-  },
-  {
-    id: 5,
-    title: "پزشکان آنلاین",
-    desc: "مشاوره پزشکی آنلاین، متنی، صوتی یا تصویری",
-    icon: "💻",
-    href: "/online-doctors",
-    badge: "ویزیت آنلاین",
-  },
-  {
-    id: 6,
-    title: "پزشکان خیریه",
-    desc: "پزشکان خیریه با امکان ویزیت حضوری یا آنلاین",
-    icon: "🤝",
-    href: "/charity-doctors",
-    badge: "حضوری + آنلاین",
   },
 ];
 
-const WHY_DOCTIME_ITEMS = [
+const HOME_ARTICLES = [
   {
     id: 1,
-    icon: "⚡",
-    title: "نوبت‌گیری سریع",
-    desc: "در چند ثانیه پزشک، کلینیک یا مرکز درمانی موردنظر خود را پیدا کنید و نوبت بگیرید.",
+    title: "یبوست مزمن؛ چه زمانی نیاز به مراجعه به پزشک دارید؟",
+    excerpt:
+      "اگر یبوست بیشتر از چند روز ادامه پیدا کند، با درد، نفخ شدید یا خون‌ریزی همراه باشد، لازم است علت آن به‌صورت تخصصی بررسی شود.",
+    category: "گوارش",
+    date: "۱۴۰۵/۰۴/۰۶",
+    image: "/images/articles/constipation.jpg",
+    href: "/articles/constipation-warning-signs",
+    icon: <Pill size={18} className="text-amber-600" />,
   },
   {
     id: 2,
-    icon: "🩺",
-    title: "پزشکان معتبر",
-    desc: "پروفایل پزشکان با تخصص، امتیاز، زمان حضور، نوع ویزیت و اطلاعات تکمیلی نمایش داده می‌شود.",
+    title: "ترک اعتیاد؛ چرا حمایت پزشکی و روانشناسی اهمیت حیاتی دارد؟",
+    excerpt:
+      "ترک خودسرانه بعضی مواد می‌تواند با علائم شدید جسمی و روانی همراه باشد. آشنایی با نقش پزشک، روانپزشک و مشاور در این مسیر ضروری است.",
+    category: "سلامت روان و اعتیاد",
+    date: "۱۴۰۵/۰۴/۱۱",
+    image: "/images/articles/addiction-recovery.jpg",
+    href: "/articles/addiction-recovery-guide",
+    icon: <Sparkles size={18} className="text-violet-600" />,
   },
   {
     id: 3,
-    icon: "📅",
-    title: "رزرو آنلاین ۲۴ ساعته",
-    desc: "در هر ساعت از شبانه‌روز بدون تماس تلفنی، نوبت خود را ثبت کنید.",
+    title: "علائم هشداردهنده بیماری‌های قلبی که نباید نادیده گرفته شوند",
+    excerpt:
+      "درد قفسه سینه، تنگی نفس، تپش قلب، خستگی غیرعادی و تعریق سرد از نشانه‌هایی هستند که در بعضی موارد باید فوری بررسی شوند.",
+    category: "قلب و عروق",
+    date: "۱۴۰۵/۰۴/۱۸",
+    image: "/images/articles/heart-warning.jpg",
+    href: "/articles/heart-warning-signs",
+    icon: <HeartPulse size={18} className="text-rose-600" />,
   },
   {
     id: 4,
-    icon: "💻",
-    title: "ویزیت حضوری و آنلاین",
-    desc: "امکان رزرو ویزیت حضوری، تصویری، صوتی یا متنی متناسب با نیاز شما فراهم است.",
+    title: "قند خون بالا؛ نشانه‌ها، عوامل خطر و زمان مناسب برای آزمایش",
+    excerpt:
+      "تشنگی زیاد، تکرر ادرار، تاری دید و خستگی می‌توانند از علائم بالا بودن قند خون باشند. تشخیص زودهنگام از عوارض جدی پیشگیری می‌کند.",
+    category: "دیابت",
+    date: "۱۴۰۵/۰۴/۲۳",
+    image: "/images/articles/diabetes-check.jpg",
+    href: "/articles/diabetes-signs",
+    icon: <Newspaper size={18} className="text-blue-600" />,
+  },
+  {
+    id: 5,
+    title: "چه زمانی برای درد معده، نفخ و سوزش سر دل باید متخصص گوارش را ببینیم؟",
+    excerpt:
+      "بعضی علائم گوارشی گذرا هستند، اما اگر تکرار شوند یا کیفیت زندگی را مختل کنند، مراجعه به پزشک بهترین تصمیم است.",
+    category: "گوارش",
+    date: "۱۴۰۵/۰۴/۲۷",
+    image: "/images/articles/stomach-care.jpg",
+    href: "/articles/gastro-visit-time",
+    icon: <Pill size={18} className="text-emerald-600" />,
+  },
+  {
+    id: 6,
+    title: "فشار خون، قند و چربی خون؛ سه عددی که باید جدی بگیرید",
+    excerpt:
+      "کنترل دوره‌ای این شاخص‌ها به پیشگیری از سکته، بیماری قلبی، نارسایی کلیه و بسیاری از عوارض خاموش کمک می‌کند.",
+    category: "پیشگیری و چکاپ",
+    date: "۱۴۰۵/۰۵/۰۱",
+    image: "/images/articles/checkup-metrics.jpg",
+    href: "/articles/checkup-metrics",
+    icon: <HeartPulse size={18} className="text-cyan-600" />,
   },
 ];
 
@@ -118,7 +144,7 @@ export default function Home() {
 
   const availableCities = useMemo(() => {
     if (!selectedProvince) return [];
-    const province = PROVINCES_CITIES.find((p) => p.name === selectedProvince);
+    const province = PROVINCES_CITIES.find((item) => item.name === selectedProvince);
     return province?.cities ?? [];
   }, [selectedProvince]);
 
@@ -151,8 +177,9 @@ export default function Home() {
 
     if (selectedSpecialty) {
       const specialtyLabel =
-        specialties.find((s) => s.value === selectedSpecialty)?.label ??
+        specialties.find((item) => item.value === selectedSpecialty)?.label ??
         selectedSpecialty;
+
       items.push({
         key: "specialty",
         label: `تخصص: ${specialtyLabel}`,
@@ -173,17 +200,11 @@ export default function Home() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        locationRef.current &&
-        !locationRef.current.contains(event.target as Node)
-      ) {
+      if (locationRef.current && !locationRef.current.contains(event.target as Node)) {
         setIsLocationOpen(false);
       }
 
-      if (
-        specialtyRef.current &&
-        !specialtyRef.current.contains(event.target as Node)
-      ) {
+      if (specialtyRef.current && !specialtyRef.current.contains(event.target as Node)) {
         setIsSpecialtyOpen(false);
       }
     }
@@ -211,12 +232,12 @@ export default function Home() {
       },
       {
         threshold: 0.15,
-        rootMargin: "0px 0px -60px 0px",
+        rootMargin: "0px 0px -40px 0px",
       }
     );
 
     const elements = document.querySelectorAll("[data-reveal-id]");
-    elements.forEach((el) => observerRef.current?.observe(el));
+    elements.forEach((element) => observerRef.current?.observe(element));
 
     return () => observerRef.current?.disconnect();
   }, []);
@@ -241,427 +262,371 @@ export default function Home() {
   };
 
   const revealClass = (key: RevealKey) =>
-    `transition-all duration-1000 ease-out ${
-      revealedSections.has(key)
-        ? "opacity-100 translate-y-0"
-        : "opacity-0 translate-y-8"
+    `transition-[opacity,transform] duration-700 ease-out ${
+      revealedSections.has(key) ? "opacity-100" : "translate-y-4 opacity-0"
     }`;
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#effcff_0%,#ffffff_42%,#f4fbff_100%)] text-slate-900">
-      {/* background blobs */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute right-[-140px] top-[-80px] h-[340px] w-[340px] rounded-full bg-cyan-200/35 blur-3xl" />
-        <div className="absolute left-[-120px] top-[240px] h-[300px] w-[300px] rounded-full bg-sky-200/30 blur-3xl" />
-        <div className="absolute bottom-[-120px] right-[15%] h-[320px] w-[320px] rounded-full bg-teal-200/20 blur-3xl" />
-      </div>
-
-      <div className="relative z-10 space-y-24 pb-16">
-        {/* HERO */}
-        <section className="relative px-4 pt-4 md:pt-6">
-          <div className="mx-auto max-w-7xl">
-            <div
-              data-reveal-id="hero"
-              className={`relative overflow-hidden rounded-[28px] border border-cyan-100/70 bg-white/85 px-6 py-8 shadow-[0_22px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:px-10 md:py-9 lg:px-12 ${revealClass(
-                "hero"
-              )}`}
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.14),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.10),transparent_28%),radial-gradient(circle_at_center,rgba(255,255,255,0.55),transparent_60%)]" />
-
-              <div className="relative z-10 mx-auto max-w-4xl text-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/80 bg-white/90 px-4 py-2 shadow-sm backdrop-blur">
-                  <span className="h-2.5 w-2.5 rounded-full bg-cyan-500 shadow-[0_0_0_4px_rgba(6,182,212,0.14)]" />
-                </div>
-                <h1 className="mt-5">
-                 <span className="inline-flex rounded-2xl border border-cyan-100 bg-cyan-50/80 px-4 py-3 text-lg font-extrabold leading-8 text-cyan-900 shadow-sm md:px-5 md:py-3.5 md:text-[1.55rem] lg:text-[1.8rem]">
-                       رزرو آنلاین پزشک، کلینیک، آزمایشگاه و بیمارستان
-                  </span>
-                 </h1>
-
-                <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Link
-                    to="/search"
-                    className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-gradient-to-r from-cyan-600 to-teal-600 px-8 text-sm font-black text-white shadow-[0_14px_35px_rgba(6,182,212,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(6,182,212,0.35)] md:text-base"
-                  >
-                    شروع جستجو
-                  </Link>
-
-                  <Link
-                    to="/doctors"
-                    className="inline-flex min-h-[52px] items-center justify-center rounded-full border border-slate-200 bg-white/90 px-8 text-sm font-black text-slate-800 shadow-sm transition-all duration-300 hover:border-cyan-300 hover:text-cyan-800 md:text-base"
-                  >
-                    مشاهده پزشکان
-                  </Link>
-                </div>
-
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-2 text-xs font-extrabold text-cyan-800">
-                    <span className="text-sm">✓</span>
-                    نوبت‌دهی پزشکان متخصص
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-xs font-extrabold text-sky-800">
-                    <span className="text-sm">✓</span>
-                    ویزیت آنلاین و حضوری
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-extrabold text-slate-700">
-                    <span className="text-sm">✓</span>
-                    جستجو بر اساس شهر و تخصص
-                  </div>
-                </div>
-              </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 md:pt-12">
+        <section
+          data-reveal-id="hero"
+          className={`relative z-10 text-center ${revealClass("hero")}`}
+        >
+          <div className="mx-auto max-w-4xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-extrabold text-blue-700">
+              <span className="h-2 w-2 rounded-full bg-blue-600" />
+              سامانه هوشمند نوبت‌دهی پزشکی
             </div>
 
-            {/* SEARCH BOX */}
-            <div
-              data-reveal-id="search"
-              className={`relative z-20 mx-auto -mt-8 max-w-6xl px-1 ${revealClass(
-                "search"
-              )}`}
-            >
-              <form
-                onSubmit={handleSearchSubmit}
-                className="rounded-[30px] border border-white/70 bg-white/90 p-4 shadow-[0_24px_60px_rgba(16,24,40,0.10)] backdrop-blur-2xl md:rounded-[34px] md:p-5"
-              >
-                <div className="grid grid-cols-1 gap-3">
-                  {/* province (dropdown also lets the user pick a city inside it) */}
-                  <div ref={locationRef} className="relative">
-                    <button
-                      type="button"
-                      aria-expanded={isLocationOpen}
-                      onClick={() => {
-                        setIsLocationOpen((prev) => !prev);
-                        setIsSpecialtyOpen(false);
-                      }}
-                      className="flex min-h-[78px] w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-right shadow-sm transition-all duration-200 hover:border-cyan-200 hover:bg-cyan-50/30"
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl text-slate-500">⌄</span>
-                        <div className="text-right">
-                          <p className="text-[12px] font-extrabold text-slate-500">
-                            استان{selectedCity ? " / شهر" : ""}
-                          </p>
-                          <p className="mt-1 text-lg font-black text-slate-900">
-                            {selectedCity
-                              ? `${selectedProvince} - ${selectedCity}`
-                              : selectedProvince || "انتخاب استان"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-xl text-cyan-700">
-                        📍
-                      </div>
-                    </button>
+            <h1 className="text-4xl font-black leading-[1.45] tracking-[-0.03em] text-slate-900 md:text-5xl lg:text-[3.6rem]">
+              رزرو آنلاین
+              <span className="mx-2 inline-block text-blue-600">نوبت پزشک</span>
+              <br className="hidden sm:block" />
+              <span className="text-slate-800">و مراکز درمانی</span>
+            </h1>
 
-                    {isLocationOpen && (
-                      <div className="absolute right-0 top-full z-50 mt-3 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl md:w-[720px]">
-                        <div className="grid h-[380px] grid-cols-2">
-                          <div className="overflow-y-auto border-l border-slate-100 p-4">
-                            <h3 className="mb-3 text-xs font-extrabold tracking-wide text-slate-500">
-                              استان‌ها
-                            </h3>
-                            <div className="space-y-2">
-                              {PROVINCES_CITIES.map((province) => {
-                                const active = selectedProvince === province.name;
-                                return (
-                                  <button
-                                    key={province.name}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedProvince(province.name);
-                                      setSelectedCity(null);
-                                    }}
-                                    className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
-                                      active
-                                        ? "bg-gradient-to-r from-cyan-600 to-teal-600 text-white shadow-md"
-                                        : "text-slate-800 hover:bg-cyan-50 hover:text-cyan-800"
-                                    }`}
-                                  >
-                                    <span>{province.name}</span>
-                                    {active && <span>✓</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+            <p className="mx-auto mt-5 max-w-2xl text-sm font-semibold leading-8 text-slate-500 md:text-base">
+              پزشک، تخصص، شهر یا مرکز درمانی موردنظر خود را جستجو کنید و بدون تماس
+              تلفنی در چند دقیقه نوبت بگیرید.
+            </p>
+          </div>
+        </section>
 
-                          <div className="overflow-y-auto p-4">
-                            <h3 className="mb-3 text-xs font-extrabold tracking-wide text-slate-500">
-                              شهرهای {selectedProvince || "..."}
-                            </h3>
+        <section
+          data-reveal-id="search"
+          className={`relative z-[60] mx-auto mt-10 max-w-6xl overflow-visible ${revealClass(
+            "search"
+          )}`}
+        >
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative z-[60] overflow-visible rounded-[34px] border border-slate-200/80 bg-white/95 p-4 shadow-[0_26px_70px_rgba(15,23,42,0.10)] ring-1 ring-slate-100 backdrop-blur md:p-5 lg:p-6"
+          >
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-extrabold text-blue-700">
+                <Sparkles size={14} />
+                جستجوی سریع و هوشمند پزشک
+              </div>
 
-                            {selectedProvince ? (
-                              <div className="space-y-2">
-                                {availableCities.map((city) => {
-                                  const active = selectedCity === city;
-                                  return (
-                                    <button
-                                      key={city}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedCity(city);
-                                        setIsLocationOpen(false);
-                                      }}
-                                      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
-                                        active
-                                          ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md"
-                                          : "text-slate-800 hover:bg-teal-50 hover:text-teal-800"
-                                      }`}
-                                    >
-                                      <span>{city}</span>
-                                      {active && <span>✓</span>}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl bg-slate-50 p-6 text-center text-sm font-bold text-slate-400">
-                                ابتدا یک استان را انتخاب کنید
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+              <p className="text-xs font-bold text-slate-500">
+                شهر، تخصص و نام پزشک را وارد کنید تا نتیجه دقیق‌تری ببینید
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.08fr_1.08fr_1.45fr_auto]">
+              <div ref={locationRef} className="relative">
+                <button
+                  type="button"
+                  aria-expanded={isLocationOpen}
+                  onClick={() => {
+                    setIsLocationOpen((prev) => !prev);
+                    setIsSpecialtyOpen(false);
+                  }}
+                  className="group flex min-h-[78px] w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-slate-50/80 px-4 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition hover:border-slate-300 hover:bg-white"
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <MapPin size={20} className="text-blue-600" />
                   </div>
-                </div>
 
-                {/* specialty */}
-                <div className="mt-3">
-                  <div ref={specialtyRef} className="relative">
-                    <button
-                      type="button"
-                      aria-expanded={isSpecialtyOpen}
-                      onClick={() => {
-                        setIsSpecialtyOpen((prev) => !prev);
-                        setIsLocationOpen(false);
-                      }}
-                      className="flex min-h-[78px] w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-right shadow-sm transition-all duration-200 hover:border-cyan-200 hover:bg-cyan-50/20"
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl text-slate-500">⌄</span>
-                        <div className="text-right">
-                          <p className="text-[12px] font-extrabold text-slate-500">
-                            تخصص
-                          </p>
-                          <p className="mt-1 text-lg font-black text-slate-900">
-                            {selectedSpecialty
-                              ? specialties.find((s) => s.value === selectedSpecialty)?.label ?? selectedSpecialty
-                              : "لیست تخصص‌ها"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-xl text-cyan-700">
-                        🩺
-                      </div>
-                    </button>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-extrabold text-slate-400">
+                      استان / شهر
+                    </span>
+                    <span className="mt-1 text-[15px] font-black text-slate-800">
+                      {selectedCity
+                        ? `${selectedProvince} - ${selectedCity}`
+                        : selectedProvince || "انتخاب مکان"}
+                    </span>
+                  </div>
 
-                    {isSpecialtyOpen && (
-                      <div className="absolute right-0 top-full z-50 mt-3 max-h-[380px] w-full overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl md:w-[420px]">
-                        <h3 className="mb-3 text-xs font-extrabold tracking-wide text-slate-500">
-                          لیست تخصص‌ها
+                  <ChevronDown
+                    size={18}
+                    className="mr-auto text-slate-400 transition group-hover:text-slate-600"
+                  />
+                </button>
+
+                {isLocationOpen && (
+                  <div className="absolute right-0 top-full z-[100] mt-3 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)] md:w-[720px]">
+                    <div className="grid h-[360px] grid-cols-2">
+                      <div className="overflow-y-auto border-l border-slate-100 p-4">
+                        <h3 className="mb-3 text-xs font-extrabold text-slate-500">
+                          استان‌ها
                         </h3>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedSpecialty(null);
-                            setIsSpecialtyOpen(false);
-                          }}
-                          className="mb-2 flex w-full items-center justify-between rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-800 transition hover:bg-cyan-100"
-                        >
-                          <span>همه تخصص‌ها</span>
-                          <span>🔄</span>
-                        </button>
-
                         <div className="space-y-2">
-                          {specialties.map((spec) => {
-                            const active = selectedSpecialty === spec.value;
+                          {PROVINCES_CITIES.map((province) => {
+                            const active = selectedProvince === province.name;
+
                             return (
                               <button
-                                key={spec.value}
+                                key={province.name}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedSpecialty(spec.value);
-                                  setIsSpecialtyOpen(false);
+                                  setSelectedProvince(province.name);
+                                  setSelectedCity(null);
                                 }}
-                                className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
+                                className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition ${
                                   active
-                                    ? "bg-gradient-to-r from-cyan-600 to-teal-600 text-white shadow-md"
-                                    : "text-slate-800 hover:bg-cyan-50 hover:text-cyan-800"
+                                    ? "bg-blue-600 text-white shadow-sm"
+                                    : "text-slate-700 hover:bg-slate-50"
                                 }`}
                               >
-                                <div className="flex items-center gap-3">
-                                  <span>🩺</span>
-                                  <span>{spec.label}</span>
-                                </div>
+                                <span>{province.name}</span>
                                 {active && <span>✓</span>}
                               </button>
                             );
                           })}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* query */}
-                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto]">
-                  <div className="relative">
-                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xl text-slate-400">
-                      🔍
-                    </span>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="جستجوی نام پزشک، تخصص یا بیماری..."
-                      className="min-h-[64px] w-full rounded-[20px] border border-slate-200 bg-slate-50/50 py-3 pl-5 pr-14 text-sm font-bold text-slate-800 transition focus:border-cyan-300 focus:bg-white focus:outline-none"
-                    />
-                  </div>
+                      <div className="overflow-y-auto p-4">
+                        <h3 className="mb-3 text-xs font-extrabold text-slate-500">
+                          شهرهای {selectedProvince || "..."}
+                        </h3>
 
-                  <button
-                    type="submit"
-                    className="flex min-h-[64px] items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-cyan-600 to-teal-600 px-8 font-black text-white shadow-[0_8px_20px_rgba(6,182,212,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(6,182,212,0.25)]"
-                  >
-                    <span>جستجو</span>
-                    <span>🔍</span>
-                  </button>
-                </div>
+                        {selectedProvince ? (
+                          <div className="space-y-2">
+                            {availableCities.map((city) => {
+                              const active = selectedCity === city;
 
-                {activeFilters.length > 0 && (
-                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
-                    <span className="text-xs font-extrabold text-slate-500">
-                      فیلترهای فعال:
-                    </span>
-
-                    {activeFilters.map((filter) => (
-                      <div
-                        key={filter.key}
-                        className="inline-flex items-center gap-2 rounded-xl bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-800"
-                      >
-                        <span>{filter.label}</span>
-                        <button
-                          type="button"
-                          onClick={filter.onRemove}
-                          className="hover:text-red-600"
-                        >
-                          ✕
-                        </button>
+                              return (
+                                <button
+                                  key={city}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCity(city);
+                                    setIsLocationOpen(false);
+                                  }}
+                                  className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition ${
+                                    active
+                                      ? "bg-blue-600 text-white shadow-sm"
+                                      : "text-slate-700 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <span>{city}</span>
+                                  {active && <span>✓</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl bg-slate-50 p-6 text-center text-sm font-bold text-slate-400">
+                            ابتدا یک استان را انتخاب کنید
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div ref={specialtyRef} className="relative">
+                <button
+                  type="button"
+                  aria-expanded={isSpecialtyOpen}
+                  onClick={() => {
+                    setIsSpecialtyOpen((prev) => !prev);
+                    setIsLocationOpen(false);
+                  }}
+                  className="group flex min-h-[78px] w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-slate-50/80 px-4 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition hover:border-slate-300 hover:bg-white"
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <Stethoscope size={20} className="text-blue-600" />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-extrabold text-slate-400">
+                      تخصص
+                    </span>
+                    <span className="mt-1 text-[15px] font-black text-slate-800">
+                      {selectedSpecialty
+                        ? specialties.find((item) => item.value === selectedSpecialty)
+                            ?.label ?? selectedSpecialty
+                        : "لیست تخصص‌ها"}
+                    </span>
+                  </div>
+
+                  <ChevronDown
+                    size={18}
+                    className="mr-auto text-slate-400 transition group-hover:text-slate-600"
+                  />
+                </button>
+
+                {isSpecialtyOpen && (
+                  <div className="absolute right-0 top-full z-[100] mt-3 max-h-[380px] w-full overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_28px_70px_rgba(15,23,42,0.16)] md:w-[420px]">
+                    <h3 className="mb-3 text-xs font-extrabold text-slate-500">
+                      لیست تخصص‌ها
+                    </h3>
 
                     <button
                       type="button"
-                      onClick={handleResetFilters}
-                      className="mr-auto text-xs font-black text-red-600 hover:underline"
+                      onClick={() => {
+                        setSelectedSpecialty(null);
+                        setIsSpecialtyOpen(false);
+                      }}
+                      className="mb-2 flex w-full items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
                     >
-                      پاک کردن همه
+                      <span>همه تخصص‌ها</span>
+                      <span>✕</span>
                     </button>
+
+                    <div className="space-y-2">
+                      {specialties.map((spec) => {
+                        const active = selectedSpecialty === spec.value;
+
+                        return (
+                          <button
+                            key={spec.value}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSpecialty(spec.value);
+                              setIsSpecialtyOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition ${
+                              active
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span>{spec.label}</span>
+                            {active && <span>✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-              </form>
+              </div>
+
+              <div className="relative">
+                <Search
+                  size={20}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="نام پزشک، مرکز درمانی یا بیماری..."
+                  className="min-h-[78px] w-full rounded-[24px] border border-slate-200 bg-slate-50/80 py-3 pl-4 pr-12 text-[15px] font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="min-h-[78px] rounded-[24px] bg-gradient-to-r from-blue-600 to-cyan-500 px-8 text-[15px] font-black text-white shadow-[0_14px_28px_rgba(37,99,235,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_36px_rgba(37,99,235,0.28)]"
+              >
+                جستجو
+              </button>
             </div>
-          </div>
+
+            {activeFilters.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                {activeFilters.map((filter) => (
+                  <div
+                    key={filter.key}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700"
+                  >
+                    <span>{filter.label}</span>
+                    <button type="button" onClick={filter.onRemove}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="mr-auto text-xs font-black text-red-600 hover:underline"
+                >
+                  پاک کردن همه
+                </button>
+              </div>
+            )}
+          </form>
         </section>
 
-        {/* SERVICES */}
         <section
           data-reveal-id="services"
-          className={`mx-auto max-w-7xl px-4 ${revealClass("services")}`}
+          className={`relative z-0 mt-20 ${revealClass("services")}`}
         >
-          <div className="text-center">
-            <h2 className="text-3xl font-black text-slate-900 md:text-4xl">
-              خدمات نوبت‌دهی داک‌تایم
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm font-bold leading-7 text-slate-500">
-              خدمت مورد نظر خود را انتخاب کرده و مراحل رزرو نوبت آنلاین را آغاز
-              کنید.
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-black text-slate-900">خدمات اصلی</h2>
+            <p className="mt-3 text-sm font-bold text-slate-500">
+              مسیر موردنظر خود را برای رزرو نوبت انتخاب کنید
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {HOME_SERVICES.map((service) => (
               <Link
                 key={service.id}
                 to={service.href}
-                className="group relative overflow-hidden rounded-[28px] border border-slate-100 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1.5 hover:border-cyan-200 hover:shadow-[0_20px_40px_rgba(15,23,42,0.08)]"
+                className="group rounded-[30px] border border-slate-200 bg-white p-8 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(15,23,42,0.08)]"
               >
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-sky-500 to-teal-500 opacity-80" />
-
-                <div className="flex items-center justify-between">
-                  <span className="text-4xl">{service.icon}</span>
-                  <span className="rounded-full bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-800">
-                    {service.badge}
-                  </span>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
+                  {service.icon}
                 </div>
 
-                <h3 className="mt-6 text-xl font-black text-slate-900 transition group-hover:text-cyan-800">
+                <h3 className="mt-6 text-xl font-black text-slate-900">
                   {service.title}
                 </h3>
                 <p className="mt-3 text-sm font-bold leading-7 text-slate-500">
                   {service.desc}
                 </p>
 
-                <div className="mt-5 text-sm font-black text-cyan-700 opacity-0 transition group-hover:opacity-100">
-                  مشاهده و رزرو ←
+                <div className="mt-6 flex items-center gap-2 text-sm font-black text-blue-600 opacity-0 transition group-hover:opacity-100">
+                  مشاهده بیشتر
+                  <ArrowLeft size={16} />
                 </div>
               </Link>
             ))}
           </div>
         </section>
 
-        {/* DOCTORS */}
         <section
           data-reveal-id="doctors"
-          className={`mx-auto max-w-7xl px-4 ${revealClass("doctors")}`}
+          className={`mt-20 ${revealClass("doctors")}`}
         >
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <h2 className="text-3xl font-black text-slate-900">
-                پزشکان برجسته داک‌تایم
-              </h2>
+              <h2 className="text-3xl font-black text-slate-900">پزشکان برتر</h2>
               <p className="mt-2 text-sm font-bold text-slate-500">
-                پرامتیازترین پزشکان بر اساس نظرات و بازخورد بیماران.
+                پزشکان با بیشترین رضایت و امتیاز کاربران
               </p>
             </div>
 
-            <Link
-              to="/doctors"
-              className="text-sm font-black text-cyan-700 hover:underline"
-            >
-              مشاهده همه پزشکان ←
+            <Link to="/doctors" className="text-sm font-black text-blue-600 hover:underline">
+              مشاهده همه
             </Link>
           </div>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {TOP_DOCTORS.map((doc) => (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {TOP_DOCTORS.slice(0, 4).map((doc) => (
               <div
                 key={doc.id}
                 onClick={() => setSelectedDoctorId(doc.id)}
-                className={`cursor-pointer rounded-[28px] border p-5 transition-all duration-300 ${
+                className={`cursor-pointer rounded-[28px] border bg-white p-4 transition ${
                   selectedDoctorId === doc.id
-                    ? "border-cyan-500 bg-cyan-50/20 shadow-[0_12px_30px_rgba(6,182,212,0.08)]"
-                    : "border-slate-100 bg-white hover:border-slate-300"
+                    ? "border-blue-200 shadow-[0_12px_28px_rgba(37,99,235,0.10)]"
+                    : "border-slate-200 hover:border-slate-300 hover:shadow-[0_12px_28px_rgba(15,23,42,0.05)]"
                 }`}
               >
-                <div className="relative h-48 overflow-hidden rounded-2xl bg-slate-100">
+                <div className="relative overflow-hidden rounded-2xl bg-slate-100">
                   <SafeImage
                     src={doc.image}
                     alt={doc.name}
-                    className="h-full w-full object-cover"
+                    className="aspect-[4/4.2] w-full object-cover"
                   />
-                  <div className="absolute left-3 top-3 rounded-xl bg-white/95 px-2 py-1 text-xs font-black text-amber-600 shadow-sm backdrop-blur">
+                  <div className="absolute left-3 top-3 rounded-xl bg-white px-2 py-1 text-xs font-black text-amber-500 shadow-sm">
                     ★ {doc.rating}
                   </div>
                 </div>
 
-                <h3 className="mt-4 text-lg font-black text-slate-900">
-                  {doc.name}
-                </h3>
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  {doc.specialty}
-                </p>
-                <p className="mt-3 text-xs font-black text-cyan-800">
+                <h3 className="mt-4 text-lg font-black text-slate-900">{doc.name}</h3>
+                <p className="mt-1 text-sm font-bold text-slate-500">{doc.specialty}</p>
+                <p className="mt-3 text-xs font-black text-blue-600">
                   نزدیک‌ترین زمان: {doc.nextAvailable}
                 </p>
               </div>
@@ -669,138 +634,117 @@ export default function Home() {
           </div>
         </section>
 
-        {/* QUICK BOOKING */}
         {selectedDoctor && (
           <section
             data-reveal-id="quick-booking"
-            className={`mx-auto max-w-4xl px-4 ${revealClass("quick-booking")}`}
+            className={`mt-20 ${revealClass("quick-booking")}`}
           >
-            <div className="rounded-[36px] border border-cyan-100 bg-white p-6 shadow-xl md:p-10">
-              <div className="text-center">
-                <h2 className="text-2xl font-black text-slate-900">
-                  رزرو سریع نوبت برای {selectedDoctor.name}
-                </h2>
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  تاریخ موردنظر را از تقویم زیر انتخاب کنید و نوبت خود را آنلاین
-                  نهایی کنید.
-                </p>
+            <div className="overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.06)]">
+              <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-6 py-6 md:px-8">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-extrabold text-blue-700">
+                      <Sparkles size={14} />
+                      رزرو سریع و هوشمند
+                    </div>
+
+                    <h2 className="mt-4 text-2xl font-black text-slate-900 md:text-[2rem]">
+                      رزرو سریع برای {selectedDoctor.name}
+                    </h2>
+
+                    <p className="mt-2 text-sm font-bold text-slate-500">
+                      زمان مناسب را انتخاب و نوبت خود را نهایی کنید
+                    </p>
+                  </div>
+
+                  <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
+                    <div className="text-xs font-extrabold text-slate-400">پزشک انتخاب‌شده</div>
+                    <div className="mt-1 text-base font-black text-slate-900">
+                      {selectedDoctor.name}
+                    </div>
+                    <div className="mt-1 text-sm font-bold text-blue-600">
+                      {selectedDoctor.specialty}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-8">
-                <BookingCalendar
-                  doctorId={selectedDoctor.id}
-                  doctorName={selectedDoctor.name}
-                  specialty={selectedDoctor.specialty}
-                />
+              <div className="p-6 md:p-8">
+                <div className="flex flex-col items-center">
+                  <BookingCalendar
+                    doctorId={selectedDoctor.id}
+                    doctorName={selectedDoctor.name}
+                    specialty={selectedDoctor.specialty}
+                  />
+                </div>
               </div>
             </div>
           </section>
         )}
 
-        {/* ARTICLES */}
         <section
           data-reveal-id="articles"
-          className={`mx-auto max-w-7xl px-4 ${revealClass("articles")}`}
+          className={`mt-20 ${revealClass("articles")}`}
         >
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <h2 className="text-3xl font-black text-slate-900">
-                مجله سلامت داک‌تایم
-              </h2>
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-extrabold text-slate-700">
+                <Newspaper size={14} />
+                محتوای کاربردی و آموزشی
+              </div>
+              <h2 className="mt-4 text-3xl font-black text-slate-900">مجله سلامت</h2>
               <p className="mt-2 text-sm font-bold text-slate-500">
-                آخرین اخبار پزشکی و مقالات علمی معتبر در حوزه سلامت.
+                مطالب آموزشی، پیشگیرانه و راهنمای مراجعه برای موضوعات مهم سلامت
               </p>
             </div>
 
-            <Link
-              to="/articles"
-              className="text-sm font-black text-cyan-700 hover:underline"
-            >
-              مشاهده همه مقالات ←
+            <Link to="/articles" className="text-sm font-black text-blue-600 hover:underline">
+              مشاهده همه مقالات
             </Link>
           </div>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {ARTICLES.map((article) => (
-              <article
+                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {HOME_ARTICLES.map((article) => (
+              <Link
                 key={article.id}
-                className="group overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-200 hover:shadow-md"
+                to={article.href}
+                className="group overflow-hidden rounded-[30px] border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(15,23,42,0.08)]"
               >
-                <div className="h-48 overflow-hidden bg-slate-100">
+                <div className="relative bg-slate-100">
                   <SafeImage
                     src={article.image}
                     alt={article.title}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    className="h-56 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                   />
+
+                  <div className="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
+                    {article.icon}
+                    <span>{article.category}</span>
+                  </div>
                 </div>
 
                 <div className="p-6">
-                  <span className="text-[11px] font-black text-cyan-800">
-                    {article.category}
-                  </span>
-
-                  <h3 className="mt-3 text-lg font-black leading-7 text-slate-900 group-hover:text-cyan-800">
+                  <h3 className="text-xl font-black leading-8 text-slate-900 transition group-hover:text-blue-700">
                     {article.title}
                   </h3>
 
-                  <p className="mt-2 text-xs font-bold leading-6 text-slate-500">
+                  <p className="mt-3 text-sm font-bold leading-7 text-slate-500">
                     {article.excerpt}
                   </p>
 
-                  <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold text-slate-400">
-                    <span>{article.date}</span>
-                    <span className="text-cyan-700 group-hover:underline">
-                      مطالعه مقاله ←
+                  <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+                    <span className="text-xs font-bold text-slate-400">
+                      {article.date}
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 text-sm font-black text-blue-600">
+                      مطالعه مقاله
+                      <ArrowLeft size={16} />
                     </span>
                   </div>
                 </div>
-              </article>
+              </Link>
             ))}
-          </div>
-        </section>
-
-        {/* WHY DOCTIME */}
-        <section
-          data-reveal-id="cta"
-          className={`mx-auto max-w-7xl px-4 ${revealClass("cta")}`}
-        >
-          <div className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-cyan-600 via-sky-600 to-teal-600 px-6 py-10 text-white shadow-[0_25px_60px_rgba(8,145,178,0.28)] md:px-10 md:py-14">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.14),transparent_30%)]" />
-
-            <div className="relative z-10">
-              <div className="text-center">
-                <div className="inline-flex items-center rounded-full bg-white/15 px-4 py-2 text-sm font-black backdrop-blur">
-                  چرا داک‌تایم؟
-                </div>
-
-                <h2 className="mt-5 text-3xl font-black md:text-4xl">
-                  رزرو درمانی، سریع‌تر و مطمئن‌تر
-                </h2>
-
-                <p className="mx-auto mt-4 max-w-3xl text-sm font-bold leading-8 text-cyan-50 md:text-base">
-                  ما فرایند سخت و زمان‌بر رزرو حضوری و تلفنی نوبت پزشک را با
-                  سیستمی ساده و مطمئن جایگزین کرده‌ایم تا تمرکز شما فقط روی
-                  سلامتی‌تان باشد.
-                </p>
-              </div>
-
-              <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                {WHY_DOCTIME_ITEMS.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-[24px] border border-white/20 bg-white/10 p-5 backdrop-blur-md"
-                  >
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-2xl">
-                      {item.icon}
-                    </div>
-                    <h3 className="text-lg font-black text-white">{item.title}</h3>
-                    <p className="mt-3 text-sm font-bold leading-7 text-cyan-50/95">
-                      {item.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </section>
       </div>
