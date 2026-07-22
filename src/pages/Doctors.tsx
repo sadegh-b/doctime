@@ -1,3 +1,5 @@
+// مسیر فایل: src/pages/Doctors.tsx
+
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -178,17 +180,12 @@ export default function Doctors() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 shrink-0 text-cyan-600" />
-                      <span>
-                        {safeText(doctor.specialty, "تخصص ثبت نشده")}
-                      </span>
-                    </div>
+                    {/* حذف تکرار فیلد تخصص در اینجا جهت بهینه‌سازی ظاهر کارت */}
 
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-4 w-4 shrink-0 text-cyan-600" />
                       <span>
-                        {doctor.experience_years > 0
+                        {doctor.experience_years && Number(doctor.experience_years) > 0
                           ? `${toPersianDigits(
                               doctor.experience_years
                             )} سال سابقه`
@@ -204,8 +201,9 @@ export default function Doctors() {
                   </div>
                 </div>
 
+                {/* اصلاح مسیر از "/doctors/${doctor.id}" به "/doctor/${doctor.id}" برای سازگاری کامل با کامپوننت DoctorProfilePage */}
                 <Link
-                  to={`/doctors/${doctor.id}`}
+                  to={`/doctor/${doctor.id}`}
                   className="mt-6 block rounded-xl bg-cyan-600 py-3 text-center font-medium text-white transition hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-2"
                 >
                   مشاهده و دریافت نوبت

@@ -1,5 +1,3 @@
-// src/pages/Doctor/DoctorAvailability.tsx
-
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,9 +14,10 @@ import {
 
 import { getMyProfile } from "../../services/profile";
 import {
-  getAvailabilitiesByDoctor,
+  getDoctorAvailability,
   autoGenerateAvailability,
   deleteAvailability,
+  type AutoGenerateAvailabilityPayload,
 } from "../../services/availability";
 
 type AvailabilityItem = {
@@ -32,37 +31,66 @@ type AvailabilityItem = {
   status?: string | null;
 };
 
+// تبدیل اعداد انگلیسی به فارسی برای بهبود نمایش در UI
 function toPersianDigits(value: string | number) {
   return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 }
 
+// استانداردسازی فرمت تاریخ ورودی
+function normalizeDateInput(date?: string | null) {
+  if (!date) return null;
+  const clean = date.trim();
+  if (!clean) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    return `${clean}T12:00:00`;
+  }
+
+  const parsed = new Date(clean);
+  if (!Number.isNaN(parsed.getTime())) {
+    parsed.setHours(12, 0, 0, 0);
+    return parsed.toISOString();
+  }
+
+  return null;
+}
+
+// تبدیل تاریخ میلادی به جلالی
 function formatDate(date?: string | null) {
-  if (!date) return "تاریخ نامشخص";
+  const normalized = normalizeDateInput(date);
+  if (!normalized) return "تاریخ نامشخص";
 
   try {
-    const [year, month, day] = date.split("-").map(Number);
-
+    const parsed = new Date(normalized);
     return new Intl.DateTimeFormat("fa-IR", {
       year: "numeric",
       month: "long",
       day: "numeric",
       weekday: "long",
-    }).format(new Date(year, month - 1, day));
+    }).format(parsed);
   } catch {
-    return date;
+    return date ?? "تاریخ نامشخص";
   }
 }
 
+// نمایش ساعت در فرمت استاندارد ۲۴ ساعته
+function formatTime(time?: string | null) {
+  if (!time) return "نامشخص";
+  const clean = String(time).trim();
+  if (!clean) return "نامشخص";
+  return toPersianDigits(clean.slice(0, 5));
+}
+
+// تشخیص وضعیت بازه زمانی
 function normalizeStatus(slot: AvailabilityItem) {
   if (slot.is_booked) return "booked";
   if (slot.is_available === false) return "unavailable";
   return "available";
 }
 
+// ترجمه وضعیت‌ها
 function statusText(slot: AvailabilityItem) {
-  const status = normalizeStatus(slot);
-
-  switch (status) {
+  switch (normalizeStatus(slot)) {
     case "booked":
       return "رزرو شده";
     case "unavailable":
@@ -72,10 +100,9 @@ function statusText(slot: AvailabilityItem) {
   }
 }
 
+// کلاس‌های استایل وضعیت‌ها
 function statusClass(slot: AvailabilityItem) {
-  const status = normalizeStatus(slot);
-
-  switch (status) {
+  switch (normalizeStatus(slot)) {
     case "booked":
       return "bg-amber-100 text-amber-700 border-amber-200";
     case "unavailable":
@@ -88,6 +115,7 @@ function statusClass(slot: AvailabilityItem) {
 export default function DoctorAvailability() {
   const queryClient = useQueryClient();
 
+  // دریافت اطلاعات پروفایل پزشک برای استخراج شناسه پزشک (doctor_id)
   const {
     data: profile,
     isLoading: profileLoading,
@@ -100,6 +128,7 @@ export default function DoctorAvailability() {
 
   const doctorId = profile?.id;
 
+  // دریافت لیست برنامه زمانی پزشک
   const {
     data: availabilities = [],
     isLoading,
@@ -108,12 +137,31 @@ export default function DoctorAvailability() {
     isFetching,
   } = useQuery<AvailabilityItem[]>({
     queryKey: ["doctor-availability", doctorId],
-    queryFn: () => getAvailabilitiesByDoctor(doctorId as number),
+    queryFn: () => getDoctorAvailability(doctorId as number),
     enabled: Boolean(doctorId),
   });
 
+  // ساخت خودکار برنامه زمانی با متد mutation و ساختار کامل Payload
   const autoGenerateMutation = useMutation({
-    mutationFn: () => autoGenerateAvailability(),
+    mutationFn: () => {
+      if (!doctorId) {
+        throw new Error("شناسه پزشک یافت نشد.");
+      }
+
+      const payload: AutoGenerateAvailabilityPayload = {
+        doctor_id: doctorId,
+        start_date: "2026-07-21",
+        end_date: "2026-07-31",
+        slot_duration: 30,
+        work_days: [0, 1, 2, 3, 4], // شنبه تا چهارشنبه
+        day_start_time: "09:00",
+        day_end_time: "17:00",
+        break_start_time: "12:30",
+        break_end_time: "13:30",
+      };
+
+      return autoGenerateAvailability(payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["doctor-availability", doctorId],
@@ -128,6 +176,7 @@ export default function DoctorAvailability() {
     },
   });
 
+  // حذف یک بازه زمانی مشخص
   const deleteMutation = useMutation({
     mutationFn: (availabilityId: number) => deleteAvailability(availabilityId),
     onSuccess: () => {
@@ -143,6 +192,7 @@ export default function DoctorAvailability() {
     },
   });
 
+  // مرتب‌سازی بازه‌های زمانی براساس تاریخ و ساعت
   const sortedAvailabilities = useMemo(() => {
     return [...availabilities].sort((a, b) => {
       const aValue = `${a.date ?? ""} ${a.start_time ?? ""}`;
@@ -151,6 +201,7 @@ export default function DoctorAvailability() {
     });
   }, [availabilities]);
 
+  // محاسبه آمار بازه‌ها با useMemo جهت جلوگیری از محاسبات مجدد غیرضروری در رندرها
   const stats = useMemo(() => {
     const total = availabilities.length;
     const available = availabilities.filter(
@@ -181,7 +232,6 @@ export default function DoctorAvailability() {
           <div className="text-lg font-black text-red-700">
             دریافت اطلاعات پزشک انجام نشد
           </div>
-
           <button
             onClick={() => refetchProfile()}
             className="mt-4 rounded-2xl bg-red-600 px-5 py-2.5 text-sm font-black text-white"
@@ -196,18 +246,15 @@ export default function DoctorAvailability() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 p-5">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900 p-6 text-white shadow-sm">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black text-cyan-100 backdrop-blur">
               Doctor Availability
             </div>
-
             <h1 className="mt-4 text-3xl font-black">برنامه زمانی پزشک</h1>
-
             <p className="mt-3 text-sm leading-7 text-slate-300">
-              {profile.name} — در این بخش می‌توانید بازه‌های زمانی آزاد، رزرو شده
-              و برنامه کاری خود را مدیریت کنید.
+              {profile?.name ?? "پزشک"} — در این بخش می‌توانید بازه‌های زمانی
+              آزاد، رزرو شده و برنامه کاری خود را مدیریت کنید.
             </p>
           </div>
 
@@ -216,10 +263,7 @@ export default function DoctorAvailability() {
               onClick={() => refetch()}
               className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-black text-white backdrop-blur"
             >
-              <RefreshCw
-                size={16}
-                className={isFetching ? "animate-spin" : ""}
-              />
+              <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
               بروزرسانی
             </button>
 
@@ -235,9 +279,7 @@ export default function DoctorAvailability() {
               className="flex items-center gap-2 rounded-2xl bg-cyan-600 px-4 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <PlusCircle size={16} />
-              {autoGenerateMutation.isPending
-                ? "در حال ساخت..."
-                : "ساخت خودکار برنامه"}
+              {autoGenerateMutation.isPending ? "در حال ساخت..." : "ساخت خودکار برنامه"}
             </button>
 
             <Link
@@ -256,14 +298,12 @@ export default function DoctorAvailability() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* بخش آمار */}
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  کل بازه‌ها
-                </div>
+                <div className="text-sm font-bold text-slate-500">کل بازه‌ها</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.total)}
                 </div>
@@ -277,9 +317,7 @@ export default function DoctorAvailability() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  بازه‌های آزاد
-                </div>
+                <div className="text-sm font-bold text-slate-500">بازه‌های آزاد</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.available)}
                 </div>
@@ -293,9 +331,7 @@ export default function DoctorAvailability() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  رزرو شده
-                </div>
+                <div className="text-sm font-bold text-slate-500">رزرو شده</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.booked)}
                 </div>
@@ -309,9 +345,7 @@ export default function DoctorAvailability() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  غیرفعال
-                </div>
+                <div className="text-sm font-bold text-slate-500">غیرفعال</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.unavailable)}
                 </div>
@@ -323,12 +357,10 @@ export default function DoctorAvailability() {
           </div>
         </div>
 
-        {/* List */}
+        {/* لیست اصلی نوبت‌ها */}
         <div className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
           <div className="mb-5">
-            <h2 className="text-xl font-black text-slate-900">
-              لیست بازه‌های زمانی
-            </h2>
+            <h2 className="text-xl font-black text-slate-900">لیست بازه‌های زمانی</h2>
             <p className="mt-2 text-sm text-slate-500">
               بازه‌های ثبت‌شده برای این پزشک از بک‌اند خوانده می‌شود.
             </p>
@@ -356,10 +388,7 @@ export default function DoctorAvailability() {
                 const canDelete = !slot.is_booked;
 
                 return (
-                  <div
-                    key={slot.id}
-                    className="rounded-3xl border border-slate-200 p-5"
-                  >
+                  <div key={slot.id} className="rounded-3xl border border-slate-200 p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="text-lg font-black text-slate-900">
@@ -367,7 +396,7 @@ export default function DoctorAvailability() {
                         </div>
 
                         <div className="mt-2 text-sm text-slate-500">
-                          {profile.name} — {profile.specialty ?? "پزشک"}
+                          {profile?.name ?? "پزشک"} — {profile?.specialty ?? "پزشک"}
                         </div>
                       </div>
 
@@ -392,9 +421,9 @@ export default function DoctorAvailability() {
                         <div className="text-sm text-slate-500">ساعت</div>
                         <div className="mt-1 flex items-center gap-2 font-black text-slate-900">
                           <Clock3 size={16} />
-                          {toPersianDigits(slot.start_time ?? "")}
+                          {formatTime(slot.start_time)}
                           {" تا "}
-                          {toPersianDigits(slot.end_time ?? "")}
+                          {formatTime(slot.end_time)}
                         </div>
                       </div>
                     </div>
@@ -409,9 +438,7 @@ export default function DoctorAvailability() {
                           type="button"
                           disabled={deleting}
                           onClick={() => {
-                            const confirmed = window.confirm(
-                              "این بازه زمانی حذف شود؟"
-                            );
+                            const confirmed = window.confirm("این بازه زمانی حذف شود؟");
                             if (!confirmed) return;
                             deleteMutation.mutate(slot.id);
                           }}

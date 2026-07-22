@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import famImage from "../assets/images/fam.jpg";
+
+const FALLBACK_IMAGE = famImage;
 
 type OnlineDoctor = {
   id: number;
@@ -27,8 +30,7 @@ const onlineDoctors: OnlineDoctor[] = [
     id: 1,
     name: "دکتر نازنین احمدی",
     specialty: "متخصص زنان و زایمان",
-    image:
-      "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=1200&auto=format&fit=crop",
+    image: FALLBACK_IMAGE,
     rating: 4.9,
     experience: "۱۲ سال سابقه",
     responseTime: "پاسخ در کمتر از ۱۰ دقیقه",
@@ -40,8 +42,7 @@ const onlineDoctors: OnlineDoctor[] = [
     id: 2,
     name: "دکتر آرش کریمی",
     specialty: "متخصص پوست، مو و زیبایی",
-    image:
-      "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=1200&auto=format&fit=crop",
+    image: FALLBACK_IMAGE,
     rating: 4.8,
     experience: "۹ سال سابقه",
     responseTime: "پاسخ در کمتر از ۱۵ دقیقه",
@@ -53,8 +54,7 @@ const onlineDoctors: OnlineDoctor[] = [
     id: 3,
     name: "دکتر مهتاب رضایی",
     specialty: "روانشناس و مشاور",
-    image:
-      "https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=1200&auto=format&fit=crop",
+    image: FALLBACK_IMAGE,
     rating: 4.9,
     experience: "۱۰ سال سابقه",
     responseTime: "پاسخ در کمتر از ۲۰ دقیقه",
@@ -66,8 +66,7 @@ const onlineDoctors: OnlineDoctor[] = [
     id: 4,
     name: "دکتر پویا محمدی",
     specialty: "پزشک عمومی",
-    image:
-      "https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=1200&auto=format&fit=crop",
+    image: FALLBACK_IMAGE,
     rating: 4.7,
     experience: "۸ سال سابقه",
     responseTime: "پاسخ در کمتر از ۸ دقیقه",
@@ -146,7 +145,7 @@ export default function OnlineVisit() {
 
               <div className="relative z-10 grid items-center gap-10 px-6 py-8 md:px-10 md:py-10 lg:grid-cols-[1.08fr_0.92fr] lg:px-14 lg:py-14">
                 {/* RIGHT CONTENT */}
-                <div className="text-center lg:text-right">
+                <div className="text-center lg:text-right" dir="rtl">
                   <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                     <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/90 px-4 py-2 text-xs font-black text-emerald-800 shadow-sm md:text-sm">
                       <span className="text-base">💬</span>
@@ -224,7 +223,7 @@ export default function OnlineVisit() {
                 </div>
 
                 {/* LEFT VISUAL PANEL */}
-                <div className="relative">
+                <div className="relative" dir="rtl">
                   <div className="rounded-[32px] border border-white/80 bg-white/85 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.10)] backdrop-blur-2xl md:p-5">
                     <div className="rounded-[28px] bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_48%,#ecfeff_100%)] p-4 md:p-5">
                       <div className="mb-4 flex items-center justify-between">
@@ -243,6 +242,10 @@ export default function OnlineVisit() {
                             src={onlineDoctors[0].image}
                             alt={onlineDoctors[0].name}
                             className="h-20 w-20 rounded-2xl object-cover ring-4 ring-white shadow"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = FALLBACK_IMAGE;
+                            }}
                           />
 
                           <div className="min-w-0 flex-1">
@@ -328,7 +331,7 @@ export default function OnlineVisit() {
         </section>
 
         {/* ================= BENEFITS ================= */}
-        <section className="px-4">
+        <section className="px-4" dir="rtl">
           <div className="mx-auto max-w-6xl">
             <div className="mb-12 text-center">
               <span className="inline-flex rounded-full border border-emerald-200 bg-white px-5 py-2 text-xs font-extrabold text-emerald-900">
@@ -361,7 +364,7 @@ export default function OnlineVisit() {
         </section>
 
         {/* ================= SPECIALTIES ================= */}
-        <section className="px-4">
+        <section className="px-4" dir="rtl">
           <div className="mx-auto max-w-6xl">
             <div className="mb-12 flex flex-col items-center justify-between gap-5 text-center md:flex-row md:text-right">
               <div>
@@ -401,7 +404,7 @@ export default function OnlineVisit() {
         </section>
 
         {/* ================= ONLINE DOCTORS ================= */}
-        <section className="px-4">
+        <section className="px-4" dir="rtl">
           <div className="mx-auto max-w-6xl">
             <div className="mb-12 flex flex-col items-center justify-between gap-5 text-center md:flex-row md:text-right">
               <div>
@@ -436,6 +439,10 @@ export default function OnlineVisit() {
                         src={doctor.image}
                         alt={doctor.name}
                         className="h-24 w-24 rounded-3xl object-cover ring-4 ring-emerald-100 shadow-md"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = FALLBACK_IMAGE;
+                        }}
                       />
                       {doctor.online && (
                         <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white bg-emerald-500 px-3 py-1 text-[10px] font-black text-white shadow md:left-auto md:right-0 md:translate-x-0">
@@ -521,7 +528,7 @@ export default function OnlineVisit() {
         </section>
 
         {/* ================= STEPS ================= */}
-        <section className="px-4">
+        <section className="px-4" dir="rtl">
           <div className="mx-auto max-w-6xl">
             <div className="mb-12 text-center">
               <span className="inline-flex rounded-full border border-emerald-200 bg-white px-5 py-2 text-xs font-extrabold text-emerald-900">
@@ -553,7 +560,7 @@ export default function OnlineVisit() {
         </section>
 
         {/* ================= FAQ ================= */}
-        <section className="px-4">
+        <section className="px-4" dir="rtl">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <span className="inline-flex rounded-full border border-slate-200 bg-white px-5 py-2 text-xs font-extrabold text-slate-700">
@@ -581,41 +588,4 @@ export default function OnlineVisit() {
           </div>
         </section>
 
-        {/* ================= CTA ================= */}
-        <section className="px-4">
-          <div className="mx-auto max-w-6xl">
-            <div className="relative overflow-hidden rounded-[36px] border border-emerald-100 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-8 text-center shadow-[0_20px_60px_rgba(16,185,129,0.20)] md:p-14">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.14),transparent_28%)]" />
-
-              <div className="relative z-10">
-                <h2 className="text-3xl font-black text-white md:text-5xl">
-                  همین حالا ویزیت آنلاین را شروع کنید
-                </h2>
-                <p className="mx-auto mt-5 max-w-2xl text-sm font-semibold leading-8 text-white/90 md:text-lg">
-                  پزشک مناسب را انتخاب کنید، سوال خود را ثبت کنید و بدون مراجعه حضوری پاسخ تخصصی
-                  بگیرید.
-                </p>
-
-                <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                  <Link
-                    to="/doctors?mode=online"
-                    className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-sm font-black text-emerald-800 shadow-xl transition-all duration-300 hover:scale-[1.03] md:text-base"
-                  >
-                    شروع ویزیت آنلاین
-                  </Link>
-
-                  <Link
-                    to="/specialties"
-                    className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/10 px-8 py-4 text-sm font-black text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 md:text-base"
-                  >
-                    مشاهده تخصص‌ها
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
+        {/* ================= CTA =====

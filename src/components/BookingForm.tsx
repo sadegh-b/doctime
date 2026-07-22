@@ -1,10 +1,7 @@
-// Path: src/components/BookingForm.tsx
-
 import React, { useState } from "react";
 import { createAppointment } from "../services/appointments";
 import { AxiosError } from "axios";
 
-// تعریف اینترفیس برای اسلات‌های زمانی جهت خوانایی بیشتر
 interface TimeSlot {
   id: number;
   time: string;
@@ -16,12 +13,16 @@ type Props = {
   availableSlots: TimeSlot[];
 };
 
+interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
+}
+
 export default function BookingForm({
   doctorId,
   doctorName = "پزشک",
   availableSlots
 }: Props) {
-  // استفاده از number | null برای هماهنگی با دیتابیس بک‌انـد
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -33,7 +34,6 @@ export default function BookingForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    // اعتبارسنجی اولیه قبل از ارسال به سرور
     if (!hasAvailableSlots) {
       setErrorMessage("در حال حاضر زمان خالی برای رزرو وجود ندارد.");
       return;
@@ -48,7 +48,7 @@ export default function BookingForm({
       setLoading(true);
       setErrorMessage(null);
 
-      // فراخوانی سرویس ثبت نوبت
+      // ارسال مستقیم اطلاعات بر اساس قرارداد API بک‌اند
       await createAppointment({
         doctor_id: doctorId,
         availability_id: selectedSlotId,
@@ -58,14 +58,13 @@ export default function BookingForm({
       setSuccess(true);
     } catch (error: unknown) {
       console.error("Booking Error:", error);
-
       let serverMessage = "متأسفانه خطایی در ثبت نوبت رخ داد.";
 
-      // مدیریت دقیق خطاهای Axios و پاسخ‌های FastAPI
       if (error instanceof AxiosError) {
+        const data = error.response?.data as ApiErrorResponse;
         serverMessage =
-          error.response?.data?.detail ||
-          error.response?.data?.message ||
+          data?.detail ||
+          data?.message ||
           error.message ||
           serverMessage;
       }
@@ -76,7 +75,6 @@ export default function BookingForm({
     }
   }
 
-  // نمایش پیام موفقیت پس از ثبت
   if (success) {
     return (
       <div className="p-6 bg-green-50 rounded-xl text-green-800 border border-green-200 shadow-sm animate-in fade-in duration-500">
@@ -88,7 +86,11 @@ export default function BookingForm({
           نوبت شما برای <strong>{doctorName}</strong> با موفقیت در سیستم رزرو شد.
         </p>
         <button
-          onClick={() => setSuccess(false)}
+          onClick={() => {
+            setSuccess(false);
+            setSelectedSlotId(null);
+            setNotes("");
+          }}
           className="mt-4 text-xs text-green-700 underline hover:text-green-900"
         >
           ثبت نوبت جدید
@@ -111,7 +113,6 @@ export default function BookingForm({
         </p>
       </div>
 
-      {/* نمایش پیام خطا در صورت وجود */}
       {errorMessage && (
         <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 font-medium flex gap-2 items-center">
           <span>⚠️</span>

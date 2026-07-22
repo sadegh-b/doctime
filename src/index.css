@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Optional: base styles */
+/* استایل‌های پایه ساختار اپلیکیشن */
 html,
 body,
 #root {
@@ -12,12 +12,21 @@ body,
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: #f8fafc;
   color: #0f172a;
 }
 
-/* Better font rendering */
+/* بهبود رندر المان‌ها */
 * {
   box-sizing: border-box;
+}
+
+/* پنهان کردن اسکرول‌بار افقی در بخش تقویم نوبت‌دهی */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }

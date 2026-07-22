@@ -1,38 +1,23 @@
-// src/pages/Register.tsx
-
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  getAccessToken,
   register,
   type RegisterPayload,
   type UserRole,
 } from "../services/auth";
 import { useAuth } from "../context/AuthContext";
 
-/**
- * تبدیل اعداد فارسی و عربی به اعداد انگلیسی انگلیسی
- */
 function normalizeDigits(value: string): string {
   const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
   const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
 
   return value
-    .replace(/[۰-۹]/g, (digit) =>
-      String(persianDigits.indexOf(digit)),
-    )
-    .replace(/[٠-٩]/g, (digit) =>
-      String(arabicDigits.indexOf(digit)),
-    );
+    .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)));
 }
 
-/**
- * استخراج پیام‌های خطای سرور
- */
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
   if (typeof error === "object" && error !== null) {
     const errorRecord = error as {
       response?: {
@@ -80,6 +65,10 @@ function getErrorMessage(error: unknown): string {
     }
   }
 
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
   return "ثبت‌نام ناموفق بود. لطفاً دوباره تلاش کنید.";
 }
 
@@ -87,7 +76,6 @@ export default function Register() {
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
 
-  // فیلدهای عمومی بیمار و پزشک
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
@@ -96,7 +84,6 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>("patient");
 
-  // فیلدهای اختصاصی پزشک
   const [medicalCouncilNumber, setMedicalCouncilNumber] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [province, setProvince] = useState("");
@@ -105,12 +92,11 @@ export default function Register() {
   const [bio, setBio] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
   const [consultationFee, setConsultationFee] = useState("");
-  const [workShift, setWorkShift] = useState<"morning" | "afternoon" | "both">("morning");
+  const [workShift, setWorkShift] = useState<"morning" | "afternoon" | "both">(
+    "morning",
+  );
 
-  // روزهای کاری به صورت آرایه
   const [workDays, setWorkDays] = useState<string[]>([]);
-
-  // ساعت‌های شیفت کاری
   const [morningStart, setMorningStart] = useState("09:00");
   const [morningEnd, setMorningEnd] = useState("13:00");
   const [afternoonStart, setAfternoonStart] = useState("16:00");
@@ -130,37 +116,43 @@ export default function Register() {
   ];
 
   const handleDayCheckboxChange = (day: string) => {
-    if (workDays.includes(day)) {
-      setWorkDays(workDays.filter((d) => d !== day));
-    } else {
-      setWorkDays([...workDays, day]);
-    }
+    setWorkDays((prevDays) =>
+      prevDays.includes(day)
+        ? prevDays.filter((item) => item !== day)
+        : [...prevDays, day],
+    );
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (loading) return;
+
     setError("");
 
     const normalizedName = name.trim();
     const normalizedPhone = normalizeDigits(phone).replace(/\s+/g, "").trim();
-    const normalizedNationalId = normalizeDigits(nationalId).replace(/\s+/g, "").trim();
+    const normalizedNationalId = normalizeDigits(nationalId)
+      .replace(/\s+/g, "")
+      .trim();
 
     try {
-      // اعتبارسنجی‌های کلاینت
       if (normalizedName.length < 2) {
         throw new Error("نام و نام خانوادگی باید حداقل ۲ نویسه داشته باشد.");
       }
+
       if (!/^09\d{9}$/.test(normalizedPhone)) {
         throw new Error("شماره موبایل باید ۱۱ رقم و با 09 شروع شود.");
       }
+
       if (!/^\d{10}$/.test(normalizedNationalId)) {
         throw new Error("کد ملی باید دقیقاً ۱۰ رقم باشد.");
       }
+
       if (password.length < 6) {
         throw new Error("رمز عبور باید حداقل ۶ نویسه داشته باشد.");
       }
+
       if (password !== confirmPassword) {
         throw new Error("رمز عبور و تکرار آن یکسان نیستند.");
       }
@@ -178,33 +170,52 @@ export default function Register() {
       }
 
       if (role === "doctor") {
-        const normalizedMcn = normalizeDigits(medicalCouncilNumber).trim();
+        const normalizedMcn = normalizeDigits(medicalCouncilNumber)
+          .replace(/\s+/g, "")
+          .trim();
+
         if (!normalizedMcn) {
           throw new Error("وارد کردن کد نظام پزشکی الزامی است.");
         }
+
         if (!specialty.trim()) {
           throw new Error("وارد کردن تخصص الزامی است.");
         }
+
         if (!province.trim()) {
           throw new Error("وارد کردن استان الزامی است.");
         }
+
         if (!city.trim()) {
           throw new Error("وارد کردن شهر الزامی است.");
         }
+
         if (!address.trim()) {
           throw new Error("وارد کردن آدرس مطب الزامی است.");
         }
+
         if (workDays.length === 0) {
           throw new Error("حداقل یک روز کاری باید انتخاب شود.");
         }
 
-        const expInt = experienceYears.trim() ? parseInt(normalizeDigits(experienceYears), 10) : 0;
-        const feeInt = consultationFee.trim() ? parseInt(normalizeDigits(consultationFee).replace(/,/g, ""), 10) : 0;
+        const expInt = experienceYears.trim()
+          ? parseInt(normalizeDigits(experienceYears).replace(/\s+/g, ""), 10)
+          : 0;
 
-        if (isNaN(expInt) || expInt < 0 || expInt > 80) {
+        const feeInt = consultationFee.trim()
+          ? parseInt(
+              normalizeDigits(consultationFee)
+                .replace(/[,\s]/g, "")
+                .trim(),
+              10,
+            )
+          : 0;
+
+        if (Number.isNaN(expInt) || expInt < 0 || expInt > 80) {
           throw new Error("سال‌های تجربه باید عددی بین ۰ تا ۸۰ باشد.");
         }
-        if (isNaN(feeInt) || feeInt < 0) {
+
+        if (Number.isNaN(feeInt) || feeInt < 0) {
           throw new Error("هزینه مشاوره معتبر نیست.");
         }
 
@@ -218,12 +229,13 @@ export default function Register() {
         payload.consultation_fee = feeInt;
         payload.work_shift = workShift;
         payload.work_days = workDays;
-        payload.schedule_start_date = new Date().toISOString().split("T")[0]; // فرمت YYYY-MM-DD
+        payload.schedule_start_date = new Date().toISOString().split("T")[0];
 
         if (workShift === "morning" || workShift === "both") {
           payload.morning_start = morningStart;
           payload.morning_end = morningEnd;
         }
+
         if (workShift === "afternoon" || workShift === "both") {
           payload.afternoon_start = afternoonStart;
           payload.afternoon_end = afternoonEnd;
@@ -231,9 +243,24 @@ export default function Register() {
       }
 
       setLoading(true);
+
       await register(payload);
-      await refreshUser();
-      navigate("/", { replace: true });
+
+      if (getAccessToken()) {
+        await refreshUser();
+
+        navigate(
+          role === "doctor" ? "/doctor-dashboard" : "/patient-profile",
+          { replace: true },
+        );
+      } else {
+        navigate(role === "doctor" ? "/doctor-login" : "/login", {
+          replace: true,
+          state: {
+            message: "ثبت‌نام با موفقیت انجام شد. اکنون وارد حساب خود شوید.",
+          },
+        });
+      }
     } catch (caughtError: unknown) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -244,17 +271,29 @@ export default function Register() {
   return (
     <div dir="rtl" className="min-h-screen bg-gray-50 px-4 py-10">
       <div className="mx-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow">
-        <h1 className="mb-6 text-2xl font-bold text-gray-900">ثبت‌نام در سیستم نوبت‌دهی</h1>
+        <h1 className="mb-6 text-2xl font-bold text-gray-900">
+          ثبت‌نام در سیستم نوبت‌دهی
+        </h1>
 
         {error && (
-          <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            role="alert"
+            className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2" noValidate>
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 gap-4 md:grid-cols-2"
+          noValidate
+        >
           <div className="md:col-span-2">
-            <label htmlFor="register-name" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-name"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               نام و نام خانوادگی
             </label>
             <input
@@ -269,7 +308,10 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-phone" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-phone"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               شماره موبایل
             </label>
             <input
@@ -288,7 +330,10 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-national-id" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-national-id"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               کد ملی
             </label>
             <input
@@ -307,7 +352,10 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-password" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-password"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               رمز عبور
             </label>
             <input
@@ -323,7 +371,10 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-confirm-password" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-confirm-password"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               تکرار رمز عبور
             </label>
             <input
@@ -339,7 +390,10 @@ export default function Register() {
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="register-email" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-email"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               ایمیل (اختیاری)
             </label>
             <input
@@ -355,7 +409,10 @@ export default function Register() {
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="register-role" className="mb-2 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="register-role"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
               نقش کاربر
             </label>
             <select
@@ -371,115 +428,139 @@ export default function Register() {
           </div>
 
           {role === "doctor" && (
-            <div className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2 border-t pt-4 mt-2">
-              <h3 className="md:col-span-2 text-lg font-bold text-gray-800">اطلاعات مطب و برنامه‌کاری پزشک</h3>
+            <div className="mt-2 grid grid-cols-1 gap-4 border-t pt-4 md:col-span-2 md:grid-cols-2">
+              <h3 className="text-lg font-bold text-gray-800 md:col-span-2">
+                اطلاعات مطب و برنامه کاری پزشک
+              </h3>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">کد نظام پزشکی</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  کد نظام پزشکی
+                </label>
                 <input
                   type="text"
                   value={medicalCouncilNumber}
                   onChange={(e) => setMedicalCouncilNumber(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                   required
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">تخصص</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  تخصص
+                </label>
                 <input
                   type="text"
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                   required
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">استان</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  استان
+                </label>
                 <input
                   type="text"
                   value={province}
                   onChange={(e) => setProvince(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                   required
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">شهر</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  شهر
+                </label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                   required
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">آدرس دقیق مطب</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  آدرس دقیق مطب
+                </label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                   required
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">معرفی کوتاه / بیوگرافی</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  معرفی کوتاه / بیوگرافی
+                </label>
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   disabled={loading}
-                  className="w-full resize-y rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full resize-y rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                   rows={3}
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">سال‌های تجربه</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  سال‌های تجربه
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={experienceYears}
                   onChange={(e) => setExperienceYears(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
                   placeholder="0"
                   dir="ltr"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">هزینه ویزیت (ریال)</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  هزینه ویزیت (ریال)
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={consultationFee}
                   onChange={(e) => setConsultationFee(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
                   placeholder="0"
                   dir="ltr"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">شیفت کاری</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  شیفت کاری
+                </label>
                 <select
                   value={workShift}
-                  onChange={(e) => setWorkShift(e.target.value as "morning" | "afternoon" | "both")}
+                  onChange={(e) =>
+                    setWorkShift(
+                      e.target.value as "morning" | "afternoon" | "both",
+                    )
+                  }
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
                 >
                   <option value="morning">شیفت صبح</option>
                   <option value="afternoon">شیفت عصر</option>
@@ -487,17 +568,21 @@ export default function Register() {
                 </select>
               </div>
 
-              {/* فیلد انتخاب روزهای کاری */}
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">روزهای کاری پزشک</label>
-                <div className="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  روزهای کاری پزشک
+                </label>
+                <div className="grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
                   {weekdays.map((day) => (
-                    <label key={day} className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                    <label
+                      key={day}
+                      className="flex cursor-pointer items-center space-x-2 space-x-reverse"
+                    >
                       <input
                         type="checkbox"
                         checked={workDays.includes(day)}
                         onChange={() => handleDayCheckboxChange(day)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-800">{day}</span>
                     </label>
@@ -505,25 +590,31 @@ export default function Register() {
                 </div>
               </div>
 
-              {/* تنظیم زمان‌های شیفت‌ها */}
               {(workShift === "morning" || workShift === "both") && (
                 <>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">شروع شیفت صبح</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      شروع شیفت صبح
+                    </label>
                     <input
                       type="time"
                       value={morningStart}
                       onChange={(e) => setMorningStart(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                      disabled={loading}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
                     />
                   </div>
+
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">پایان شیفت صبح</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      پایان شیفت صبح
+                    </label>
                     <input
                       type="time"
                       value={morningEnd}
                       onChange={(e) => setMorningEnd(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                      disabled={loading}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
                     />
                   </div>
                 </>
@@ -532,21 +623,28 @@ export default function Register() {
               {(workShift === "afternoon" || workShift === "both") && (
                 <>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">شروع شیفت عصر</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      شروع شیفت عصر
+                    </label>
                     <input
                       type="time"
                       value={afternoonStart}
                       onChange={(e) => setAfternoonStart(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                      disabled={loading}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
                     />
                   </div>
+
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">پایان شیفت عصر</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      پایان شیفت عصر
+                    </label>
                     <input
                       type="time"
                       value={afternoonEnd}
                       onChange={(e) => setAfternoonEnd(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                      disabled={loading}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
                     />
                   </div>
                 </>
@@ -554,7 +652,7 @@ export default function Register() {
             </div>
           )}
 
-          <div className="md:col-span-2 mt-4">
+          <div className="mt-4 md:col-span-2">
             <button
               type="submit"
               disabled={loading}

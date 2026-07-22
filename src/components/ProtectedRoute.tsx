@@ -25,7 +25,6 @@ export default function ProtectedRoute({
     const fallbackByRole: Record<UserRole, string> = {
       patient: "/patient-dashboard",
       doctor: "/doctor-dashboard",
-      admin: "/admin-dashboard",
     };
 
     return <Navigate to={fallbackByRole[role]} replace />;

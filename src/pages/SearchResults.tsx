@@ -3,9 +3,9 @@ import { useSearchParams, Link } from "react-router-dom";
 import { searchDoctors } from "../services/searchDoctors";
 import type { SearchParams } from "../services/searchDoctors";
 import DoctorCardSkeleton from "../components/DoctorCardSkeleton";
+import doctorPlaceholder from "../assets/images/doctor-placeholder.jpg";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300";
+const FALLBACK_IMAGE = doctorPlaceholder;
 
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,6 +91,7 @@ export default function SearchResults() {
                         alt={doctor.name}
                         className="h-16 w-16 rounded-full object-cover"
                         onError={(e) => {
+                          e.currentTarget.onerror = null;
                           e.currentTarget.src = FALLBACK_IMAGE;
                         }}
                       />

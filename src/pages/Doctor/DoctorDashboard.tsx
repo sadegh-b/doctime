@@ -1,5 +1,3 @@
-// مسیر فایل: src/pages/Doctor/DoctorDashboard.tsx
-
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,12 +30,14 @@ function formatDate(date?: string | null) {
 
   try {
     const [year, month, day] = date.split("-").map(Number);
+    const dateObj = new Date(year, month - 1, day, 12, 0, 0);
+
     return new Intl.DateTimeFormat("fa-IR", {
       year: "numeric",
       month: "long",
       day: "numeric",
       weekday: "long",
-    }).format(new Date(year, month - 1, day));
+    }).format(dateObj);
   } catch {
     return date;
   }
@@ -101,7 +101,6 @@ export default function DoctorDashboard() {
     queryFn: getDoctorAppointments,
   });
 
-  // عملیات اتمام نوبت
   const completeMutation = useMutation({
     mutationFn: (id: number) => completeAppointment(id),
     onSuccess: () => {
@@ -115,7 +114,6 @@ export default function DoctorDashboard() {
     },
   });
 
-  // عملیات لغو نوبت
   const cancelMutation = useMutation({
     mutationFn: (id: number) => cancelAppointment(id),
     onSuccess: () => {
@@ -135,8 +133,12 @@ export default function DoctorDashboard() {
       ["booked", "reserved", "confirmed"].includes(a.status ?? "")
     ).length;
     const pending = appointments.filter((a) => a.status === "pending").length;
-    const completed = appointments.filter((a) => a.status === "completed").length;
-    const cancelled = appointments.filter((a) => a.status === "cancelled").length;
+    const completed = appointments.filter(
+      (a) => a.status === "completed"
+    ).length;
+    const cancelled = appointments.filter(
+      (a) => a.status === "cancelled"
+    ).length;
 
     return { total, booked, pending, completed, cancelled };
   }, [appointments]);
@@ -153,7 +155,10 @@ export default function DoctorDashboard() {
 
   if (profileLoading) {
     return (
-      <div dir="rtl" className="p-10 text-center font-black">
+      <div
+        dir="rtl"
+        className="flex min-h-screen items-center justify-center bg-slate-50 p-10 text-center font-black text-slate-700"
+      >
         در حال دریافت اطلاعات پزشک...
       </div>
     );
@@ -161,7 +166,10 @@ export default function DoctorDashboard() {
 
   if (profileError || !profile) {
     return (
-      <div dir="rtl" className="p-10">
+      <div
+        dir="rtl"
+        className="flex min-h-screen items-center justify-center bg-slate-50 p-10"
+      >
         <div className="mx-auto max-w-3xl rounded-3xl border border-red-200 bg-red-50 p-6 text-center">
           <div className="text-lg font-black text-red-700">
             دریافت اطلاعات پزشک انجام نشد
@@ -169,7 +177,7 @@ export default function DoctorDashboard() {
 
           <button
             onClick={() => refetchProfile()}
-            className="mt-4 rounded-2xl bg-red-600 px-5 py-2.5 text-sm font-black text-white"
+            className="mt-4 rounded-2xl bg-red-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-red-700"
           >
             تلاش مجدد
           </button>
@@ -178,13 +186,16 @@ export default function DoctorDashboard() {
     );
   }
 
+  const isActionPending =
+    completeMutation.isPending || cancelMutation.isPending;
+
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 p-5">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900 p-6 text-white shadow-sm">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black text-cyan-100 backdrop-blur">
-              Doctor Dashboard
+              داشبورد پزشک
             </div>
 
             <h1 className="mt-4 text-3xl font-black">
@@ -200,15 +211,18 @@ export default function DoctorDashboard() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => refetchAppointments()}
-              className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-black text-white backdrop-blur"
+              className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/20"
             >
-              <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
+              <RefreshCw
+                size={16}
+                className={isFetching ? "animate-spin" : ""}
+              />
               بروزرسانی
             </button>
 
             <Link
               to="/doctor-appointments"
-              className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-900"
+              className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-900 transition hover:bg-slate-100"
             >
               نوبت‌های پزشک
             </Link>
@@ -219,7 +233,9 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">کل نوبت‌ها</div>
+                <div className="text-sm font-bold text-slate-500">
+                  کل نوبت‌ها
+                </div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.total)}
                 </div>
@@ -233,7 +249,9 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">رزرو شده</div>
+                <div className="text-sm font-bold text-slate-500">
+                  رزرو شده
+                </div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.booked)}
                 </div>
@@ -247,7 +265,9 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">در انتظار</div>
+                <div className="text-sm font-bold text-slate-500">
+                  در انتظار
+                </div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.pending)}
                 </div>
@@ -261,7 +281,9 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">انجام شده</div>
+                <div className="text-sm font-bold text-slate-500">
+                  انجام شده
+                </div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.completed)}
                 </div>
@@ -275,7 +297,9 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">لغو شده</div>
+                <div className="text-sm font-bold text-slate-500">
+                  لغو شده
+                </div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.cancelled)}
                 </div>
@@ -301,7 +325,7 @@ export default function DoctorDashboard() {
 
               <Link
                 to="/doctor-appointments"
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700"
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
               >
                 مشاهده همه
                 <ArrowLeft size={16} />
@@ -379,14 +403,15 @@ export default function DoctorDashboard() {
                       </div>
                     ) : null}
 
-                    {/* دکمه‌های کنترل وضعیت نوبت */}
                     {appointment.status !== "completed" &&
                       appointment.status !== "cancelled" && (
                         <div className="mt-4 flex gap-3">
                           <button
-                            onClick={() => completeMutation.mutate(appointment.id)}
-                            disabled={completeMutation.isPending}
-                            className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                            onClick={() =>
+                              completeMutation.mutate(appointment.id)
+                            }
+                            disabled={isActionPending}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {completeMutation.isPending ? (
                               "درحال انجام..."
@@ -398,9 +423,11 @@ export default function DoctorDashboard() {
                           </button>
 
                           <button
-                            onClick={() => cancelMutation.mutate(appointment.id)}
-                            disabled={cancelMutation.isPending}
-                            className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-red-50 py-3 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                            onClick={() =>
+                              cancelMutation.mutate(appointment.id)
+                            }
+                            disabled={isActionPending}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-50 py-3 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {cancelMutation.isPending ? (
                               "درحال لغو..."
@@ -449,7 +476,9 @@ export default function DoctorDashboard() {
             </div>
 
             <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-black text-slate-900">دسترسی سریع</h2>
+              <h2 className="text-xl font-black text-slate-900">
+                دسترسی سریع
+              </h2>
 
               <div className="mt-5 grid gap-3">
                 <Link

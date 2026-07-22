@@ -1,25 +1,27 @@
 ﻿import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
 import {
-  login as loginRequest,
-  logout as logoutRequest,
-  getToken,
+  getAccessToken,
+  getRole,
+  getStoredUser,
+  logout as logoutService,
+  getMe,
+  type AuthUser,
+  type UserRole,
 } from "../services/auth";
-import {
-  getMyProfile,
-  type CurrentUserProfile,
-} from "../services/profile";
 
 interface AuthContextType {
-  user: CurrentUserProfile | null;
-  token: string | null;
-  loading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  user: AuthUser | null;
+  role: UserRole | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -27,76 +29,89 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<CurrentUserProfile | null>(null);
-  const [token, setToken] = useState<string | null>(getToken());
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
+  const [role, setRole] = useState<UserRole | null>(() => getRole());
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  async function refreshUser() {
-    const currentToken = getToken();
+  const checkAuth = useCallback(async () => {
+    const token = getAccessToken();
+    const currentRole = getRole();
 
-    if (!currentToken) {
+    if (!token || !currentRole) {
       setUser(null);
-      setToken(null);
+      setRole(null);
+      setIsLoading(false);
       return;
     }
 
     try {
-      const profile = await getMyProfile();
-      setUser(profile);
-      setToken(currentToken);
+      const freshUser = await getMe();
+      setUser(freshUser);
+      setRole(freshUser.role);
     } catch (error) {
-      logoutRequest();
-      setUser(null);
-      setToken(null);
-      throw error;
+      console.error("Auth check failed:", error);
+      setUser(getStoredUser());
+      setRole(getRole());
+    } finally {
+      setIsLoading(false);
     }
-  }
-
-  useEffect(() => {
-    refreshUser()
-      .catch(() => {})
-      .finally(() => {
-        setLoading(false);
-      });
   }, []);
 
-  const login = async (phone: string, password: string) => {
-    await loginRequest(phone, password);
+  useEffect(() => {
+    void checkAuth();
 
-    const currentToken = getToken();
-    setToken(currentToken);
+    const handleAuthChange = () => {
+      setUser(getStoredUser());
+      setRole(getRole());
+    };
 
-    const profile = await getMyProfile();
-    setUser(profile);
-  };
+    window.addEventListener("auth-change", handleAuthChange);
 
-  const logout = () => {
-    logoutRequest();
+    return () => {
+      window.removeEventListener("auth-change", handleAuthChange);
+    };
+  }, [checkAuth]);
+
+  const logout = useCallback(() => {
+    logoutService();
     setUser(null);
-    setToken(null);
-  };
+    setRole(null);
+    setIsLoading(false);
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        login,
-        logout,
-        refreshUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const refreshUser = useCallback(async () => {
+    try {
+      const freshUser = await getMe();
+      setUser(freshUser);
+      setRole(freshUser.role);
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+      throw error;
+    }
+  }, []);
+
+  const isAuthenticated = Boolean(getAccessToken() && role);
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      role,
+      isAuthenticated,
+      isLoading,
+      logout,
+      refreshUser,
+    }),
+    [user, role, isAuthenticated, isLoading, logout, refreshUser],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
 
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
   }
 
   return context;

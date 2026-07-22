@@ -1,3 +1,5 @@
+// مسیر: src/services/doctors.ts
+
 import api from "./api";
 
 export interface Doctor {
@@ -28,6 +30,14 @@ interface DoctorDetailsResponse {
   item?: unknown;
 }
 
+// این اینترفیس برای داده‌هایی است که برای رزرو نوبت به بک‌اِند می‌فرستیم
+export interface AppointmentCreateData {
+  availability_id: number;
+  patient_name?: string;
+  phone_number?: string;
+  note?: string;
+}
+
 function normalizeDoctor(item: any): Doctor {
   return {
     id: Number(item?.id ?? 0),
@@ -49,15 +59,12 @@ function normalizeDoctorsResponse(data: any): Doctor[] {
   if (Array.isArray(data)) {
     return data.map(normalizeDoctor);
   }
-
   if (data && Array.isArray(data.items)) {
     return data.items.map(normalizeDoctor);
   }
-
   if (data && Array.isArray(data.data)) {
     return data.data.map(normalizeDoctor);
   }
-
   return [];
 }
 
@@ -65,11 +72,9 @@ function normalizeSingleDoctorResponse(data: any): Doctor {
   if (data?.data) {
     return normalizeDoctor(data.data);
   }
-
   if (data?.item) {
     return normalizeDoctor(data.item);
   }
-
   return normalizeDoctor(data);
 }
 
@@ -81,11 +86,9 @@ export async function getDoctors(): Promise<Doctor[]> {
 export async function getDoctorById(id: number): Promise<Doctor> {
   const response = await api.get<DoctorDetailsResponse | Doctor>(`/doctors/${id}`);
   const doctor = normalizeSingleDoctorResponse(response.data);
-
   if (!doctor.id) {
     throw new Error("اطلاعات پزشک معتبر نیست یا پزشک پیدا نشد.");
   }
-
   return doctor;
 }
 
@@ -95,6 +98,15 @@ export async function searchDoctors(
   const response = await api.get<DoctorListResponse | Doctor[]>("/doctors/search", {
     params,
   });
-
   return normalizeDoctorsResponse(response.data);
+}
+
+/**
+ * ایجاد یک نوبت جدید در سیستم
+ * مسیر این API باید در بک‌اِند شما تعریف شده باشد (معمولاً /appointments)
+ */
+export async function createAppointment(data: AppointmentCreateData) {
+  // صادق: دقت کن که آدرس "/appointments" باید با بک‌اِند هماهنگ باشد
+  const response = await api.post("/appointments", data);
+  return response.data;
 }

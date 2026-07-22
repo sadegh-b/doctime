@@ -1,3 +1,5 @@
+// مسیر فایل: src/pages/DoctorLogin.tsx
+
 import { useState } from "react";
 import { AxiosError } from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -13,6 +15,18 @@ type ErrorResponseData = {
   detail?: string | ValidationDetailItem[];
   message?: string;
 };
+
+// تابع کمکی برای تبدیل اعداد فارسی و عربی به انگلیسی جهت جلوگیری از خطای ۴۰۱ هنگام تایپ با کیبورد فارسی
+function toEnglishDigits(value: string): string {
+  const persianDigits = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
+  const arabicDigits = [/٠/g, /١/g, /٢/g, /٣/g, /٤/g, /٥/g, /٦/g, /٧/g, /٨/g, /٩/g];
+
+  let normalized = value;
+  for (let i = 0; i < 10; i++) {
+    normalized = normalized.replace(persianDigits[i], String(i)).replace(arabicDigits[i], String(i));
+  }
+  return normalized;
+}
 
 export default function DoctorLogin() {
   const navigate = useNavigate();
@@ -67,8 +81,9 @@ export default function DoctorLogin() {
     e.preventDefault();
     setError("");
 
-    const normalizedPhone = phone.trim();
-    const normalizedPassword = pass.trim();
+    // اعمال نرمال‌سازی روی شماره تلفن و پسورد و تبدیل اعداد فارسی به انگلیسی
+    const normalizedPhone = toEnglishDigits(phone.trim());
+    const normalizedPassword = toEnglishDigits(pass.trim());
 
     if (!normalizedPhone) {
       setError("شماره موبایل را وارد کنید.");
@@ -97,7 +112,9 @@ export default function DoctorLogin() {
 
       localStorage.setItem("role", profile.role);
       window.dispatchEvent(new Event("auth-change"));
-      navigate("/doctor-dashboard", { replace: true });
+
+      // اصلاح آدرس ریدایرکت از "/doctor-dashboard" به "/doctor/dashboard" برای تطابق با بقیه بخش‌های سیستم نوبت‌دهی
+      navigate("/doctor/dashboard", { replace: true });
     } catch (err: unknown) {
       console.error("DOCTOR LOGIN ERROR:", err);
 

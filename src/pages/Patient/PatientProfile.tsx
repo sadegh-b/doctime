@@ -1,7 +1,7 @@
-// مسیر فایل: src/pages/Patient/PatientProfile.tsx
-
 import { useQuery } from "@tanstack/react-query";
-import { User, Mail, Phone, Calendar, Heart, ShieldAlert } from "lucide-react";
+import { User, Mail, Phone, ShieldAlert } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { getMyProfile } from "../../services/profile";
 
 function toPersianDigits(value: string | number) {
@@ -9,15 +9,30 @@ function toPersianDigits(value: string | number) {
 }
 
 export default function PatientProfile() {
+  const navigate = useNavigate();
+
   const {
     data: profile,
     isLoading,
     isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: ["patient-profile-detail"],
     queryFn: getMyProfile,
+    retry: 1, // جلوگیری از تلاش‌های بیش از حد در صورت عدم دسترسی
   });
+
+  // هدایت کاربر به صفحه لاگین در صورت عدم احراز هویت (Unauthenticated)
+  useEffect(() => {
+    if (isError && error) {
+      const status = (error as any)?.response?.status;
+      if (status === 401 || status === 403) {
+        // اگر توکن نامعتبر بود، کاربر هدایت می‌شود به صفحه ورود
+        navigate("/login");
+      }
+    }
+  }, [isError, error, navigate]);
 
   if (isLoading) {
     return (
@@ -35,12 +50,21 @@ export default function PatientProfile() {
       <div className="flex min-h-[60vh] items-center justify-center" dir="rtl">
         <div className="rounded-3xl border border-red-100 bg-white p-8 text-center shadow-sm">
           <p className="text-lg font-black text-red-600">دریافت اطلاعات پروفایل با خطا مواجه شد.</p>
-          <button
-            onClick={() => refetch()}
-            className="mt-4 rounded-xl bg-cyan-600 px-6 py-2 text-white transition-colors hover:bg-cyan-700 font-bold"
-          >
-            تلاش مجدد
-          </button>
+          <p className="mt-2 text-sm text-slate-500">لطفاً اتصال اینترنت خود را بررسی کنید یا مجدداً وارد شوید.</p>
+          <div className="mt-4 flex justify-center gap-4">
+            <button
+              onClick={() => refetch()}
+              className="rounded-xl bg-cyan-600 px-6 py-2 text-white transition-colors hover:bg-cyan-700 font-bold"
+            >
+              تلاش مجدد
+            </button>
+            <button
+              onClick={() => navigate("/login")}
+              className="rounded-xl border border-slate-300 bg-white px-6 py-2 text-slate-700 transition-colors hover:bg-slate-50 font-bold"
+            >
+              صفحه ورود
+            </button>
+          </div>
         </div>
       </div>
     );

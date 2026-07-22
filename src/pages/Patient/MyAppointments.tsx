@@ -7,9 +7,9 @@ import {
 import {
   CalendarDays,
   Clock3,
+  RefreshCw,
   UserRound,
   XCircle,
-  RefreshCw,
 } from "lucide-react";
 
 import {
@@ -18,63 +18,141 @@ import {
   type Appointment,
 } from "../../services/appointments";
 
-function toPersianDigits(value: string | number) {
+const DEFAULT_APPOINTMENT_DURATION_MINUTES = 30;
+
+function toPersianDigits(value: string | number): string {
   return String(value).replace(
     /\d/g,
-    (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]
+    (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]
   );
 }
 
-function extractDate(value?: string | null) {
-  if (!value) return null;
-
-  if (value.includes("T")) {
-    return value.split("T")[0];
+function extractDate(value?: string | null): string | null {
+  if (!value) {
+    return null;
   }
 
-  if (value.includes(" ")) {
-    return value.split(" ")[0];
-  }
-
-  return value.includes("-") ? value : null;
+  const match = value.match(/(\d{4})-(\d{2})-(\d{2})/);
+  return match?.[0] ?? null;
 }
 
-function extractTime(value?: string | null) {
-  if (!value) return "";
-
-  if (value.includes("T")) {
-    const timePart = value.split("T")[1] ?? "";
-    return timePart.slice(0, 8);
+function extractTime(value?: string | null): string {
+  if (!value) {
+    return "";
   }
 
-  if (value.includes(" ")) {
-    const timePart = value.split(" ")[1] ?? "";
-    return timePart.slice(0, 8);
+  const match = value.match(/(\d{1,2}):(\d{2})/);
+
+  if (!match) {
+    return "";
   }
 
-  return value.slice(0, 8);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return "";
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(
+    minute
+  ).padStart(2, "0")}`;
 }
 
-function formatDate(dateValue?: string | null) {
-  const date = extractDate(dateValue);
+function addMinutesToTime(
+  value?: string | null,
+  minutes = DEFAULT_APPOINTMENT_DURATION_MINUTES
+): string {
+  const time = extractTime(value);
 
-  if (!date) return "تاریخ نامشخص";
-
-  try {
-    const [year, month, day] = date.split("-").map(Number);
-
-    return new Intl.DateTimeFormat("fa-IR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    }).format(new Date(year, month - 1, day));
-  } catch {
-    return date;
+  if (!time) {
+    return "";
   }
+
+  const [hour, minute] = time.split(":").map(Number);
+  const totalMinutes = hour * 60 + minute + minutes;
+  const minutesInDay = 24 * 60;
+  const normalizedMinutes =
+    ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
+
+  const resultHour = Math.floor(normalizedMinutes / 60);
+  const resultMinute = normalizedMinutes % 60;
+
+  return `${String(resultHour).padStart(2, "0")}:${String(
+    resultMinute
+  ).padStart(2, "0")}`;
 }
 
-function statusText(status: string) {
+function formatDate(value?: string | null): string {
+  const date = extractDate(value);
+
+  if (!date) {
+    return "تاریخ نامشخص";
+  }
+
+  const [year, month, day] = date.split("-").map(Number);
+
+  if (
+    !year ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return "تاریخ نامشخص";
+  }
+
+  const parsedDate = new Date(year, month - 1, day);
+
+  if (
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.getFullYear() !== year ||
+    parsedDate.getMonth() !== month - 1 ||
+    parsedDate.getDate() !== day
+  ) {
+    return "تاریخ نامشخص";
+  }
+
+  return new Intl.DateTimeFormat("fa-IR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  }).format(parsedDate);
+}
+
+function formatAppointmentTime(
+  startTime?: string | null,
+  endTime?: string | null
+): string {
+  const start = extractTime(startTime);
+
+  if (!start) {
+    return "زمان نامشخص";
+  }
+
+  const end =
+    extractTime(endTime) ||
+    addMinutesToTime(
+      startTime,
+      DEFAULT_APPOINTMENT_DURATION_MINUTES
+    );
+
+  if (!end) {
+    return toPersianDigits(start);
+  }
+
+  return `${toPersianDigits(start)} تا ${toPersianDigits(end)}`;
+}
+
+function statusText(status?: string | null): string {
   switch (status) {
     case "cancelled":
       return "لغو شده";
@@ -84,12 +162,15 @@ function statusText(status: string) {
       return "در انتظار";
     case "confirmed":
       return "تایید شده";
+    case "booked":
+    case "reserved":
+      return "رزرو شده";
     default:
       return "رزرو شده";
   }
 }
 
-function statusClassName(status: string) {
+function statusClassName(status?: string | null): string {
   switch (status) {
     case "cancelled":
       return "bg-red-100 text-red-700";
@@ -98,15 +179,25 @@ function statusClassName(status: string) {
     case "pending":
       return "bg-amber-100 text-amber-700";
     case "confirmed":
-    case "reserved":
+      return "bg-cyan-100 text-cyan-700";
     case "booked":
+    case "reserved":
     default:
       return "bg-green-100 text-green-700";
   }
 }
 
+function canCancelAppointment(
+  appointment: Appointment
+): boolean {
+  return !["cancelled", "completed"].includes(
+    appointment.status
+  );
+}
+
 export default function MyAppointments() {
   const queryClient = useQueryClient();
+
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
@@ -114,8 +205,8 @@ export default function MyAppointments() {
     data: appointments = [],
     isLoading,
     isError,
-    refetch,
     isFetching,
+    refetch,
   } = useQuery<Appointment[]>({
     queryKey: ["my-appointments"],
     queryFn: getMyAppointments,
@@ -124,29 +215,42 @@ export default function MyAppointments() {
   const cancelMutation = useMutation({
     mutationFn: cancelAppointment,
 
-    onSuccess: async () => {
+    onMutate: () => {
       setErrorMessage(null);
+    },
 
-      await queryClient.invalidateQueries({
-        queryKey: ["my-appointments"],
-      });
-
-      await queryClient.invalidateQueries({
-        queryKey: ["availability"],
-      });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["my-appointments"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["availability"],
+        }),
+      ]);
     },
 
     onError: () => {
       setErrorMessage(
-        "خطا در لغو نوبت. دوباره تلاش کنید."
+        "خطا در لغو نوبت. لطفاً دوباره تلاش کنید."
       );
     },
   });
 
+  function handleCancel(appointmentId: number) {
+    const confirmed = window.confirm(
+      "آیا از لغو این نوبت مطمئن هستید؟"
+    );
+
+    if (confirmed) {
+      cancelMutation.mutate(appointmentId);
+    }
+  }
+
   if (isLoading) {
     return (
       <div
-        className="p-10 text-center font-black"
+        className="min-h-screen bg-slate-50 p-10 text-center font-black text-slate-700"
         dir="rtl"
       >
         در حال دریافت نوبت‌ها...
@@ -157,140 +261,179 @@ export default function MyAppointments() {
   if (isError) {
     return (
       <div
-        className="p-10 text-center font-black text-red-600"
+        className="min-h-screen bg-slate-50 p-10 text-center"
         dir="rtl"
       >
-        خطا در دریافت نوبت‌ها
+        <p className="font-black text-red-600">
+          خطا در دریافت نوبت‌ها
+        </p>
+
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-5 rounded-2xl bg-cyan-600 px-5 py-3 font-black text-white transition hover:bg-cyan-700"
+        >
+          تلاش دوباره
+        </button>
       </div>
     );
   }
 
   return (
-    <div
+    <main
       className="min-h-screen bg-slate-50 p-5"
       dir="rtl"
     >
       <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between rounded-3xl bg-white p-6 shadow-sm">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-6 shadow-sm">
           <div>
             <h1 className="text-xl font-black text-slate-900">
               نوبت‌های من
             </h1>
 
             <p className="mt-2 text-sm text-slate-500">
-              لیست نوبت‌های ثبت شده
+              لیست نوبت‌های ثبت‌شده
             </p>
           </div>
 
           <button
+            type="button"
             onClick={() => refetch()}
-            className="flex items-center gap-2 rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-black text-white"
+            disabled={isFetching}
+            className="flex items-center gap-2 rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-black text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw
               size={16}
               className={isFetching ? "animate-spin" : ""}
             />
-            بروزرسانی
+
+            {isFetching ? "در حال بروزرسانی..." : "بروزرسانی"}
           </button>
-        </div>
+        </header>
 
         {errorMessage && (
-          <div className="mb-5 rounded-2xl bg-red-50 p-4 text-center font-bold text-red-700">
+          <div
+            role="alert"
+            className="mb-5 rounded-2xl bg-red-50 p-4 text-center font-bold text-red-700"
+          >
             {errorMessage}
           </div>
         )}
 
         {appointments.length === 0 ? (
-          <div className="rounded-3xl bg-white p-10 text-center font-black">
+          <div className="rounded-3xl bg-white p-10 text-center font-black text-slate-700 shadow-sm">
             هنوز نوبتی ثبت نکرده‌اید
           </div>
         ) : (
           <div className="space-y-5">
-            {appointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-              >
-                <div className="flex flex-wrap justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-lg font-black">
-                      <UserRound size={18} />
-                      {appointment.doctor_name ??
-                        "پزشک نامشخص"}
+            {appointments.map((appointment) => {
+              const canCancel =
+                canCancelAppointment(appointment);
+
+              const isCancellingThisAppointment =
+                cancelMutation.isPending &&
+                cancelMutation.variables === appointment.id;
+
+              return (
+                <article
+                  key={appointment.id}
+                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-lg font-black text-slate-900">
+                        <UserRound size={18} />
+
+                        <span>
+                          {appointment.doctor_name ||
+                            "پزشک نامشخص"}
+                        </span>
+                      </div>
+
+                      <p className="mt-2 text-sm text-slate-500">
+                        {appointment.doctor_specialty ||
+                          "تخصص نامشخص"}
+                      </p>
                     </div>
 
-                    <div className="mt-2 text-sm text-slate-500">
-                      {appointment.doctor_specialty ||
-                        "تخصص نامشخص"}
-                    </div>
+                    <span
+                      className={`rounded-full px-4 py-2 text-sm font-black ${statusClassName(
+                        appointment.status
+                      )}`}
+                    >
+                      {statusText(appointment.status)}
+                    </span>
                   </div>
 
-                  <div
-                    className={`rounded-full px-4 py-2 text-sm font-black ${statusClassName(
-                      appointment.status
-                    )}`}
-                  >
-                    {statusText(appointment.status)}
-                  </div>
-                </div>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <CalendarDays
+                        size={18}
+                        className="text-cyan-700"
+                      />
 
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <CalendarDays size={18} />
+                      <p className="mt-2 text-sm text-slate-500">
+                        تاریخ نوبت
+                      </p>
 
-                    <div className="mt-2 text-sm text-slate-500">
-                      تاریخ نوبت
+                      <p className="mt-1 font-black text-slate-900">
+                        {formatDate(appointment.date)}
+                      </p>
                     </div>
 
-                    <div className="mt-1 font-black">
-                      {formatDate(appointment.start_time)}
-                    </div>
-                  </div>
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <Clock3
+                        size={18}
+                        className="text-cyan-700"
+                      />
 
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <Clock3 size={18} />
+                      <p className="mt-2 text-sm text-slate-500">
+                        ساعت نوبت
+                      </p>
 
-                    <div className="mt-2 text-sm text-slate-500">
-                      ساعت نوبت
-                    </div>
-
-                    <div className="mt-1 font-black">
-                      {toPersianDigits(
-                        extractTime(
-                          appointment.start_time
-                        ) || ""
-                      )}
-                      {" تا "}
-                      {toPersianDigits(
-                        extractTime(
+                      <p className="mt-1 font-black text-slate-900">
+                        {formatAppointmentTime(
+                          appointment.start_time,
                           appointment.end_time
-                        ) || ""
-                      )}
+                        )}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                {appointment.status !== "cancelled" && (
-                  <button
-                    disabled={cancelMutation.isPending}
-                    onClick={() =>
-                      cancelMutation.mutate(
-                        appointment.id
-                      )
-                    }
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 py-3 font-black text-white hover:bg-red-700 disabled:opacity-50"
-                  >
-                    <XCircle size={18} />
-                    {cancelMutation.isPending
-                      ? "در حال لغو..."
-                      : "لغو نوبت"}
-                  </button>
-                )}
-              </div>
-            ))}
+                  {appointment.notes && (
+                    <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">
+                        توضیحات
+                      </p>
+
+                      <p className="mt-1 whitespace-pre-wrap font-medium text-slate-800">
+                        {appointment.notes}
+                      </p>
+                    </div>
+                  )}
+
+                  {canCancel && (
+                    <button
+                      type="button"
+                      disabled={cancelMutation.isPending}
+                      onClick={() =>
+                        handleCancel(appointment.id)
+                      }
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 py-3 font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <XCircle size={18} />
+
+                      {isCancellingThisAppointment
+                        ? "در حال لغو..."
+                        : "لغو نوبت"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

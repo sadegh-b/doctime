@@ -1,181 +1,87 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-
+import { Suspense, lazy } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 import Header from "./components/ui/Header";
 import Footer from "./components/ui/Footer";
-import ProtectedRoute from "./components/ProtectedRoute";
-
-import PatientDashboard from "./pages/Patient/PatientDashboard";
-import PatientAppointments from "./pages/Patient/PatientAppointments";
-import BookAppointment from "./pages/Patient/BookAppointment";
 
 const Home = lazy(() => import("./pages/Home"));
 const Doctors = lazy(() => import("./pages/Doctors"));
 const SearchResults = lazy(() => import("./pages/SearchResults"));
-const DoctorProfilePage = lazy(() => import("./pages/DoctorProfilePage"));
-
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const DoctorLogin = lazy(() => import("./pages/DoctorLogin"));
-
-const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
-const DoctorAppointments = lazy(() => import("./pages/Doctor/DoctorAppointments"));
-const DoctorSchedule = lazy(() => import("./pages/Doctor/DoctorSchedule"));
+const DoctorProfilePage = lazy(() => import("./pages/DoctorProfilePage"));
 
 const PatientProfile = lazy(() => import("./pages/Patient/PatientProfile"));
-const DoctorProfile = lazy(() => import("./pages/Doctor/DoctorProfile"));
+const MyAppointments = lazy(() => import("./pages/Patient/MyAppointments"));
+
+const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
+const DoctorAvailability = lazy(() => import("./pages/Doctor/DoctorAvailability"));
+const DoctorAppointments = lazy(() => import("./pages/Doctor/DoctorAppointments"));
+const DoctorAdminProfile = lazy(() => import("./pages/Doctor/DoctorProfile"));
+const DoctorSchedule = lazy(() => import("./pages/Doctor/DoctorSchedule"));
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
-function ProfileRedirect() {
-  const role = localStorage.getItem("role");
-
-  if (role === "doctor") {
-    return <Navigate to="/doctor-profile" replace />;
-  }
-
-  if (role === "patient") {
-    return <Navigate to="/patient-profile" replace />;
-  }
-
-  return <Navigate to="/login" replace />;
+function PageLoader() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center" dir="rtl">
+      <div className="text-center font-bold text-slate-500">در حال بارگذاری...</div>
+    </div>
+  );
 }
 
 export default function App() {
-  const location = useLocation();
-  const [refreshHeader, setRefreshHeader] = useState(0);
-
-  useEffect(() => {
-    const updateHeader = () => {
-      setRefreshHeader((value) => value + 1);
-    };
-
-    window.addEventListener("storage", updateHeader);
-    window.addEventListener("auth-change", updateHeader);
-
-    return () => {
-      window.removeEventListener("storage", updateHeader);
-      window.removeEventListener("auth-change", updateHeader);
-    };
-  }, []);
-
-  const isHome = location.pathname === "/";
-
   return (
-    <div dir="rtl" className="min-h-screen bg-[#f8fafc] text-slate-900">
-      <Header key={refreshHeader} />
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+      <Header />
 
-      <main
-        className={
-          isHome ? "" : "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
-        }
-      >
-        <Suspense
-          fallback={
-            <div className="flex min-h-[320px] items-center justify-center">
-              <div className="text-center">
-                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-                <p className="mt-4 font-bold text-slate-500">در حال بارگذاری...</p>
-              </div>
-            </div>
-          }
-        >
+      <main className="flex-grow">
+        <Suspense fallback={<PageLoader />}>
           <Routes>
-            {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/doctors" element={<Doctors />} />
             <Route path="/search" element={<SearchResults />} />
-            <Route path="/doctors/:id" element={<DoctorProfilePage />} />
+            <Route path="/doctor/:id" element={<DoctorProfilePage />} />
 
-            {/* Auth Routes */}
             <Route path="/login" element={<Login />} />
-            <Route path="/doctor-login" element={<DoctorLogin />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/doctor-register" element={<Register />} />
+            <Route path="/doctor-login" element={<DoctorLogin />} />
 
-            {/* Shared Profile Entry */}
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute allowedRoles={["patient", "doctor"]}>
-                  <ProfileRedirect />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/patient-profile" element={<PatientProfile />} />
+            <Route path="/my-appointments" element={<MyAppointments />} />
 
-            {/* Patient Routes */}
+            <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+            <Route path="/doctor-availability" element={<DoctorAvailability />} />
+            <Route path="/doctor-appointments" element={<DoctorAppointments />} />
+            <Route path="/doctor-profile" element={<DoctorAdminProfile />} />
+            <Route path="/doctor-schedule" element={<DoctorSchedule />} />
+
             <Route
               path="/patient-dashboard"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <PatientDashboard />
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/patient-profile" replace />}
             />
             <Route
-              path="/patient-profile"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <PatientProfile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient-appointments"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <PatientAppointments />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/book-appointment"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <BookAppointment />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/my-appointments"
-              element={<Navigate to="/patient-appointments" replace />}
+              path="/patient/appointments"
+              element={<Navigate to="/my-appointments" replace />}
             />
 
-            {/* Doctor Routes */}
             <Route
-              path="/doctor-dashboard"
-              element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
-                  <DoctorDashboard />
-                </ProtectedRoute>
-              }
+              path="/doctor/dashboard"
+              element={<Navigate to="/doctor-dashboard" replace />}
             />
             <Route
-              path="/doctor-profile"
-              element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
-                  <DoctorProfile />
-                </ProtectedRoute>
-              }
+              path="/doctor/availability"
+              element={<Navigate to="/doctor-availability" replace />}
             />
             <Route
-              path="/doctor-appointments"
-              element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
-                  <DoctorAppointments />
-                </ProtectedRoute>
-              }
+              path="/doctor/appointments"
+              element={<Navigate to="/doctor-appointments" replace />}
             />
             <Route
-              path="/doctor-schedule"
-              element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
-                  <DoctorSchedule />
-                </ProtectedRoute>
-              }
+              path="/doctor/profile"
+              element={<Navigate to="/doctor-profile" replace />}
             />
 
-            {/* Fallback */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
