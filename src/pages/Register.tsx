@@ -1,654 +1,569 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+// src/pages/Register.tsx
+
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   register,
   type RegisterPayload,
-  type WorkShift,
+  type UserRole,
 } from "../services/auth";
-import { isTimeoutError, wakeApi } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
-type Role = "patient" | "doctor";
+/**
+ * تبدیل اعداد فارسی و عربی به اعداد انگلیسی انگلیسی
+ */
+function normalizeDigits(value: string): string {
+  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+  const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
 
-const WEEK_DAYS = [
-  { id: "شنبه", label: "شنبه" },
-  { id: "یک‌شنبه", label: "یک‌شنبه" },
-  { id: "دوشنبه", label: "دوشنبه" },
-  { id: "سه‌شنبه", label: "سه‌شنبه" },
-  { id: "چهارشنبه", label: "چهارشنبه" },
-  { id: "پنج‌شنبه", label: "پنج‌شنبه" },
-  { id: "جمعه", label: "جمعه" },
-];
-
-const TIME_OPTIONS = [
-  "06:00",
-  "07:00",
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-  "21:00",
-  "22:00",
-];
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return value
+    .replace(/[۰-۹]/g, (digit) =>
+      String(persianDigits.indexOf(digit)),
+    )
+    .replace(/[٠-٩]/g, (digit) =>
+      String(arabicDigits.indexOf(digit)),
+    );
 }
 
-function normalizePersianDay(day: string): string {
-  return day
-    .trim()
-    .replace(/\u200c/g, " ")
-    .replace(/\s+/g, " ");
-}
-
-function getErrorMessage(err: unknown): string {
-  if (isTimeoutError(err)) {
-    return "سرور در حال آماده‌سازی بود و به‌موقع پاسخ نداد. لطفاً چند ثانیه دیگر دوباره تلاش کنید.";
+/**
+ * استخراج پیام‌های خطای سرور
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
   }
 
-  if (
-    typeof err === "object" &&
-    err !== null &&
-    "response" in err
-  ) {
-    const response = (err as {
+  if (typeof error === "object" && error !== null) {
+    const errorRecord = error as {
       response?: {
         data?: {
-          detail?: string;
-          message?: string;
+          detail?: unknown;
+          message?: unknown;
         };
       };
-    }).response;
+    };
 
-    if (response?.data?.detail) {
-      return response.data.detail;
+    const detail = errorRecord.response?.data?.detail;
+    const message = errorRecord.response?.data?.message;
+
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
     }
 
-    if (response?.data?.message) {
-      return response.data.message;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+
+    if (Array.isArray(detail)) {
+      const validationMessages = detail
+        .map((item) => {
+          if (typeof item === "string") {
+            return item;
+          }
+
+          if (
+            typeof item === "object" &&
+            item !== null &&
+            "msg" in item &&
+            typeof item.msg === "string"
+          ) {
+            return item.msg;
+          }
+
+          return "";
+        })
+        .filter(Boolean);
+
+      if (validationMessages.length > 0) {
+        return validationMessages.join("، ");
+      }
     }
   }
 
-  if (err instanceof Error) {
-    return err.message || "ثبت‌نام انجام نشد.";
-  }
-
-  return "ثبت‌نام انجام نشد. ارتباط با سرور برقرار نشد.";
+  return "ثبت‌نام ناموفق بود. لطفاً دوباره تلاش کنید.";
 }
 
 export default function Register() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { refreshUser } = useAuth();
 
-  const isDoctorRoute = location.pathname === "/doctor-register";
-  const [role, setRole] = useState<Role>(isDoctorRoute ? "doctor" : "patient");
-
-  useEffect(() => {
-    setRole(isDoctorRoute ? "doctor" : "patient");
-  }, [isDoctorRoute]);
-
+  // فیلدهای عمومی بیمار و پزشک
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<UserRole>("patient");
 
+  // فیلدهای اختصاصی پزشک
+  const [medicalCouncilNumber, setMedicalCouncilNumber] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
-  const [workShift, setWorkShift] = useState<WorkShift>("morning");
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [scheduleStartDate, setScheduleStartDate] = useState("");
-  const [morningStart, setMorningStart] = useState("08:00");
-  const [morningEnd, setMorningEnd] = useState("12:00");
+  const [address, setAddress] = useState("");
+  const [bio, setBio] = useState("");
+  const [experienceYears, setExperienceYears] = useState("");
+  const [consultationFee, setConsultationFee] = useState("");
+  const [workShift, setWorkShift] = useState<"morning" | "afternoon" | "both">("morning");
+
+  // روزهای کاری به صورت آرایه
+  const [workDays, setWorkDays] = useState<string[]>([]);
+
+  // ساعت‌های شیفت کاری
+  const [morningStart, setMorningStart] = useState("09:00");
+  const [morningEnd, setMorningEnd] = useState("13:00");
   const [afternoonStart, setAfternoonStart] = useState("16:00");
   const [afternoonEnd, setAfternoonEnd] = useState("20:00");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
-  const isDoctor = role === "doctor";
+  const weekdays = [
+    "شنبه",
+    "یکشنبه",
+    "دوشنبه",
+    "سه شنبه",
+    "چهارشنبه",
+    "پنج شنبه",
+    "جمعه",
+  ];
 
-  const toggleDay = (dayId: string) => {
-    setSelectedDays((prev) =>
-      prev.includes(dayId) ? prev.filter((d) => d !== dayId) : [...prev, dayId]
-    );
+  const handleDayCheckboxChange = (day: string) => {
+    if (workDays.includes(day)) {
+      setWorkDays(workDays.filter((d) => d !== day));
+    } else {
+      setWorkDays([...workDays, day]);
+    }
   };
 
-  function isValidIranMobile(value: string): boolean {
-    return /^09\d{9}$/.test(value);
-  }
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-  function isValidPersianDate(value: string): boolean {
-    return /^\d{4}\/\d{2}\/\d{2}$/.test(value);
-  }
-
-  function isValidTimeRange(start: string, end: string): boolean {
-    return start < end;
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+    if (loading) return;
     setError("");
-    setSuccess("");
 
     const normalizedName = name.trim();
-    const normalizedPhone = phone.trim();
-    const normalizedEmail = email.trim();
-    const normalizedPassword = password.trim();
-    const normalizedSpecialty = specialty.trim();
-    const normalizedCity = city.trim();
-    const normalizedScheduleStartDate = scheduleStartDate.trim();
-    const normalizedSelectedDays = selectedDays.map(normalizePersianDay);
-
-    if (!normalizedName || !normalizedPhone || !normalizedPassword) {
-      setError("نام، شماره موبایل و رمز عبور الزامی است.");
-      return;
-    }
-
-    if (!isValidIranMobile(normalizedPhone)) {
-      setError("شماره موبایل نامعتبر است. باید با 09 شروع شود و 11 رقم باشد.");
-      return;
-    }
-
-    if (normalizedPassword.length < 6) {
-      setError("رمز عبور باید حداقل 6 کاراکتر باشد.");
-      return;
-    }
-
-    if (isDoctor) {
-      if (!normalizedSpecialty) {
-        setError("وارد کردن تخصص برای پزشکان الزامی است.");
-        return;
-      }
-
-      if (!normalizedCity) {
-        setError("وارد کردن شهر برای پزشکان الزامی است.");
-        return;
-      }
-
-      if (normalizedSelectedDays.length === 0) {
-        setError("لطفاً حداقل یک روز کاری را انتخاب کنید.");
-        return;
-      }
-
-      if (!normalizedScheduleStartDate) {
-        setError("تاریخ شروع برنامه کاری پزشک الزامی است.");
-        return;
-      }
-
-      if (!isValidPersianDate(normalizedScheduleStartDate)) {
-        setError("فرمت تاریخ باید به صورت 1405/04/24 باشد.");
-        return;
-      }
-
-      if (
-        (workShift === "morning" || workShift === "both") &&
-        !isValidTimeRange(morningStart, morningEnd)
-      ) {
-        setError("ساعت شروع شیفت صبح باید از ساعت پایان کمتر باشد.");
-        return;
-      }
-
-      if (
-        (workShift === "afternoon" || workShift === "both") &&
-        !isValidTimeRange(afternoonStart, afternoonEnd)
-      ) {
-        setError("ساعت شروع شیفت عصر باید از ساعت پایان کمتر باشد.");
-        return;
-      }
-    }
+    const normalizedPhone = normalizeDigits(phone).replace(/\s+/g, "").trim();
+    const normalizedNationalId = normalizeDigits(nationalId).replace(/\s+/g, "").trim();
 
     try {
-      setLoading(true);
+      // اعتبارسنجی‌های کلاینت
+      if (normalizedName.length < 2) {
+        throw new Error("نام و نام خانوادگی باید حداقل ۲ نویسه داشته باشد.");
+      }
+      if (!/^09\d{9}$/.test(normalizedPhone)) {
+        throw new Error("شماره موبایل باید ۱۱ رقم و با 09 شروع شود.");
+      }
+      if (!/^\d{10}$/.test(normalizedNationalId)) {
+        throw new Error("کد ملی باید دقیقاً ۱۰ رقم باشد.");
+      }
+      if (password.length < 6) {
+        throw new Error("رمز عبور باید حداقل ۶ نویسه داشته باشد.");
+      }
+      if (password !== confirmPassword) {
+        throw new Error("رمز عبور و تکرار آن یکسان نیستند.");
+      }
 
       const payload: RegisterPayload = {
         name: normalizedName,
         phone: normalizedPhone,
-        password: normalizedPassword,
-        email: normalizedEmail || undefined,
+        national_id: normalizedNationalId,
+        password,
         role,
-        specialty: isDoctor ? normalizedSpecialty : undefined,
-        city: isDoctor ? normalizedCity : undefined,
-        work_shift: isDoctor ? workShift : undefined,
-        work_days: isDoctor ? normalizedSelectedDays : undefined,
-        schedule_start_date: isDoctor ? normalizedScheduleStartDate : undefined,
-        morning_start:
-          isDoctor && (workShift === "morning" || workShift === "both")
-            ? morningStart
-            : undefined,
-        morning_end:
-          isDoctor && (workShift === "morning" || workShift === "both")
-            ? morningEnd
-            : undefined,
-        afternoon_start:
-          isDoctor && (workShift === "afternoon" || workShift === "both")
-            ? afternoonStart
-            : undefined,
-        afternoon_end:
-          isDoctor && (workShift === "afternoon" || workShift === "both")
-            ? afternoonEnd
-            : undefined,
       };
 
-      console.log("REGISTER PAYLOAD:", payload);
+      if (email.trim()) {
+        payload.email = email.trim();
+      }
 
-      await wakeApi();
+      if (role === "doctor") {
+        const normalizedMcn = normalizeDigits(medicalCouncilNumber).trim();
+        if (!normalizedMcn) {
+          throw new Error("وارد کردن کد نظام پزشکی الزامی است.");
+        }
+        if (!specialty.trim()) {
+          throw new Error("وارد کردن تخصص الزامی است.");
+        }
+        if (!province.trim()) {
+          throw new Error("وارد کردن استان الزامی است.");
+        }
+        if (!city.trim()) {
+          throw new Error("وارد کردن شهر الزامی است.");
+        }
+        if (!address.trim()) {
+          throw new Error("وارد کردن آدرس مطب الزامی است.");
+        }
+        if (workDays.length === 0) {
+          throw new Error("حداقل یک روز کاری باید انتخاب شود.");
+        }
 
-      let lastError: unknown;
+        const expInt = experienceYears.trim() ? parseInt(normalizeDigits(experienceYears), 10) : 0;
+        const feeInt = consultationFee.trim() ? parseInt(normalizeDigits(consultationFee).replace(/,/g, ""), 10) : 0;
 
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
-        try {
-          await register(payload);
+        if (isNaN(expInt) || expInt < 0 || expInt > 80) {
+          throw new Error("سال‌های تجربه باید عددی بین ۰ تا ۸۰ باشد.");
+        }
+        if (isNaN(feeInt) || feeInt < 0) {
+          throw new Error("هزینه مشاوره معتبر نیست.");
+        }
 
-          setSuccess("ثبت‌نام با موفقیت انجام شد. در حال انتقال به صفحه ورود...");
+        payload.medical_council_number = normalizedMcn;
+        payload.specialty = specialty.trim();
+        payload.province = province.trim();
+        payload.city = city.trim();
+        payload.address = address.trim();
+        payload.bio = bio.trim() || null;
+        payload.experience_years = expInt;
+        payload.consultation_fee = feeInt;
+        payload.work_shift = workShift;
+        payload.work_days = workDays;
+        payload.schedule_start_date = new Date().toISOString().split("T")[0]; // فرمت YYYY-MM-DD
 
-          setTimeout(() => {
-            if (role === "doctor") {
-              navigate("/doctor-login");
-            } else {
-              navigate("/login");
-            }
-          }, 1500);
-
-          return;
-        } catch (err) {
-          lastError = err;
-
-          console.error(`REGISTER ATTEMPT ${attempt} FAILED:`, err);
-
-          if (attempt === 1 && isTimeoutError(err)) {
-            await sleep(4000);
-            await wakeApi();
-            continue;
-          }
-
-          throw err;
+        if (workShift === "morning" || workShift === "both") {
+          payload.morning_start = morningStart;
+          payload.morning_end = morningEnd;
+        }
+        if (workShift === "afternoon" || workShift === "both") {
+          payload.afternoon_start = afternoonStart;
+          payload.afternoon_end = afternoonEnd;
         }
       }
 
-      throw lastError;
-    } catch (err) {
-      setError(getErrorMessage(err));
-      console.error("REGISTER FINAL ERROR:", err);
+      setLoading(true);
+      await register(payload);
+      await refreshUser();
+      navigate("/", { replace: true });
+    } catch (caughtError: unknown) {
+      setError(getErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }
-  }
-
-  const timeSelectClass =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-cyan-500";
+  };
 
   return (
-    <div
-      dir="rtl"
-      className="flex min-h-[72vh] items-center justify-center px-4 py-10"
-    >
-      <div className="grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="order-2 p-6 sm:p-8 lg:order-1 lg:p-10">
-          <div className="mx-auto max-w-md">
-            <div className="mb-8 text-center lg:text-right">
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">
-                ثبت‌نام در DocTime
-              </h1>
-              <p className="mt-3 text-sm leading-7 text-slate-500">
-                حساب کاربری جدید بسازید.
-              </p>
-            </div>
+    <div dir="rtl" className="min-h-screen bg-gray-50 px-4 py-10">
+      <div className="mx-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow">
+        <h1 className="mb-6 text-2xl font-bold text-gray-900">ثبت‌نام در سیستم نوبت‌دهی</h1>
 
-            <div className="mb-6 grid grid-cols-2 gap-3 rounded-3xl bg-slate-100 p-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setRole("patient");
-                  navigate("/register");
-                }}
-                className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
-                  role === "patient"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-slate-600"
-                }`}
-              >
-                ثبت‌نام بیمار
-              </button>
+        {error && (
+          <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setRole("doctor");
-                  navigate("/doctor-register");
-                }}
-                className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
-                  role === "doctor"
-                    ? "bg-white text-cyan-700 shadow-sm"
-                    : "text-slate-600"
-                }`}
-              >
-                ثبت‌نام پزشک
-              </button>
-            </div>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2" noValidate>
+          <div className="md:col-span-2">
+            <label htmlFor="register-name" className="mb-2 block text-sm font-medium text-gray-700">
+              نام و نام خانوادگی
+            </label>
+            <input
+              id="register-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
+              required
+            />
+          </div>
 
-            {error && (
-              <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
-                {error}
-              </div>
-            )}
+          <div>
+            <label htmlFor="register-phone" className="mb-2 block text-sm font-medium text-gray-700">
+              شماره موبایل
+            </label>
+            <input
+              id="register-phone"
+              type="tel"
+              inputMode="numeric"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              maxLength={11}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
+              placeholder="09123456789"
+              dir="ltr"
+              required
+            />
+          </div>
 
-            {success && (
-              <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-700">
-                {success}
-              </div>
-            )}
+          <div>
+            <label htmlFor="register-national-id" className="mb-2 block text-sm font-medium text-gray-700">
+              کد ملی
+            </label>
+            <input
+              id="register-national-id"
+              type="text"
+              inputMode="numeric"
+              value={nationalId}
+              onChange={(e) => setNationalId(e.target.value)}
+              maxLength={10}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
+              placeholder="۱۰ رقم"
+              dir="ltr"
+              required
+            />
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="register-password" className="mb-2 block text-sm font-medium text-gray-700">
+              رمز عبور
+            </label>
+            <input
+              id="register-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
+              dir="ltr"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="register-confirm-password" className="mb-2 block text-sm font-medium text-gray-700">
+              تکرار رمز عبور
+            </label>
+            <input
+              id="register-confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
+              dir="ltr"
+              required
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label htmlFor="register-email" className="mb-2 block text-sm font-medium text-gray-700">
+              ایمیل (اختیاری)
+            </label>
+            <input
+              id="register-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
+              placeholder="example@email.com"
+              dir="ltr"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label htmlFor="register-role" className="mb-2 block text-sm font-medium text-gray-700">
+              نقش کاربر
+            </label>
+            <select
+              id="register-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as UserRole)}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
+            >
+              <option value="patient">بیمار</option>
+              <option value="doctor">پزشک</option>
+            </select>
+          </div>
+
+          {role === "doctor" && (
+            <div className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2 border-t pt-4 mt-2">
+              <h3 className="md:col-span-2 text-lg font-bold text-gray-800">اطلاعات مطب و برنامه‌کاری پزشک</h3>
+
               <div>
-                <label className="mb-2 block text-sm font-black text-slate-700">
-                  نام و نام خانوادگی
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">کد نظام پزشکی</label>
                 <input
                   type="text"
-                  autoComplete="name"
-                  placeholder="نام کامل"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
-                    isDoctor
-                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  }`}
+                  value={medicalCouncilNumber}
+                  onChange={(e) => setMedicalCouncilNumber(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  required
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-black text-slate-700">
-                  شماره موبایل
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">تخصص</label>
                 <input
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder="09123456789"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
-                    isDoctor
-                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  }`}
+                  type="text"
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  required
                 />
               </div>
 
-              {isDoctor && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">استان</label>
+                <input
+                  type="text"
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">شهر</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">آدرس دقیق مطب</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">معرفی کوتاه / بیوگرافی</label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  disabled={loading}
+                  className="w-full resize-y rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">سال‌های تجربه</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={experienceYears}
+                  onChange={(e) => setExperienceYears(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                  placeholder="0"
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">هزینه ویزیت (ریال)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={consultationFee}
+                  onChange={(e) => setConsultationFee(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                  placeholder="0"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">شیفت کاری</label>
+                <select
+                  value={workShift}
+                  onChange={(e) => setWorkShift(e.target.value as "morning" | "afternoon" | "both")}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+                >
+                  <option value="morning">شیفت صبح</option>
+                  <option value="afternoon">شیفت عصر</option>
+                  <option value="both">هر دو شیفت</option>
+                </select>
+              </div>
+
+              {/* فیلد انتخاب روزهای کاری */}
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">روزهای کاری پزشک</label>
+                <div className="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                  {weekdays.map((day) => (
+                    <label key={day} className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={workDays.includes(day)}
+                        onChange={() => handleDayCheckboxChange(day)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-800">{day}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* تنظیم زمان‌های شیفت‌ها */}
+              {(workShift === "morning" || workShift === "both") && (
                 <>
                   <div>
-                    <label className="mb-2 block text-sm font-black text-cyan-700">
-                      تخصص پزشک
-                    </label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">شروع شیفت صبح</label>
                     <input
-                      type="text"
-                      placeholder="مثال: متخصص قلب و عروق"
-                      value={specialty}
-                      onChange={(e) => setSpecialty(e.target.value)}
-                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      type="time"
+                      value={morningStart}
+                      onChange={(e) => setMorningStart(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
                     />
                   </div>
-
                   <div>
-                    <label className="mb-2 block text-sm font-black text-cyan-700">
-                      شهر
-                    </label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">پایان شیفت صبح</label>
                     <input
-                      type="text"
-                      placeholder="مثال: تهران"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                      type="time"
+                      value={morningEnd}
+                      onChange={(e) => setMorningEnd(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
                     />
                   </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-black text-cyan-700">
-                      روزهای کاری هفته
-                    </label>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      {WEEK_DAYS.map((day) => (
-                        <button
-                          key={day.id}
-                          type="button"
-                          onClick={() => toggleDay(day.id)}
-                          className={`rounded-xl border py-2 text-xs font-bold transition ${
-                            selectedDays.includes(day.id)
-                              ? "border-cyan-500 bg-cyan-500 text-white"
-                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                          }`}
-                        >
-                          {day.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-black text-cyan-700">
-                      تاریخ شروع برنامه کاری
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 1405/04/24"
-                      value={scheduleStartDate}
-                      onChange={(e) => setScheduleStartDate(e.target.value)}
-                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                    />
-                    <p className="mt-2 text-xs text-slate-500">
-                      این تاریخ فقط برای شروع برنامه کاری است.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-black text-cyan-700">
-                      شیفت کاری
-                    </label>
-                    <select
-                      value={workShift}
-                      onChange={(e) => setWorkShift(e.target.value as WorkShift)}
-                      className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                    >
-                      <option value="morning">صبح</option>
-                      <option value="afternoon">عصر</option>
-                      <option value="both">صبح و عصر</option>
-                    </select>
-                  </div>
-
-                  {(workShift === "morning" || workShift === "both") && (
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                      <div className="mb-3 text-xs font-bold text-slate-500">
-                        ساعت کار شیفت صبح
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-600">
-                            شروع
-                          </label>
-                          <select
-                            value={morningStart}
-                            onChange={(e) => setMorningStart(e.target.value)}
-                            className={timeSelectClass}
-                          >
-                            {TIME_OPTIONS.map((time) => (
-                              <option key={`morning-start-${time}`} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-600">
-                            پایان
-                          </label>
-                          <select
-                            value={morningEnd}
-                            onChange={(e) => setMorningEnd(e.target.value)}
-                            className={timeSelectClass}
-                          >
-                            {TIME_OPTIONS.map((time) => (
-                              <option key={`morning-end-${time}`} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {(workShift === "afternoon" || workShift === "both") && (
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                      <div className="mb-3 text-xs font-bold text-slate-500">
-                        ساعت کار شیفت عصر
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-600">
-                            شروع
-                          </label>
-                          <select
-                            value={afternoonStart}
-                            onChange={(e) => setAfternoonStart(e.target.value)}
-                            className={timeSelectClass}
-                          >
-                            {TIME_OPTIONS.map((time) => (
-                              <option key={`afternoon-start-${time}`} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-600">
-                            پایان
-                          </label>
-                          <select
-                            value={afternoonEnd}
-                            onChange={(e) => setAfternoonEnd(e.target.value)}
-                            className={timeSelectClass}
-                          >
-                            {TIME_OPTIONS.map((time) => (
-                              <option key={`afternoon-end-${time}`} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
 
-              <div>
-                <label className="mb-2 block text-sm font-black text-slate-700">
-                  ایمیل <span className="text-slate-400">(اختیاری)</span>
-                </label>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="example@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
-                    isDoctor
-                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-black text-slate-700">
-                  رمز عبور
-                </label>
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="رمز عبور"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition ${
-                    isDoctor
-                      ? "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                      : "focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  }`}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full rounded-2xl px-5 py-3.5 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 ${
-                  isDoctor
-                    ? "bg-gradient-to-r from-cyan-600 to-sky-700"
-                    : "bg-gradient-to-r from-emerald-600 to-cyan-600"
-                }`}
-              >
-                {loading
-                  ? "در حال ثبت‌نام..."
-                  : isDoctor
-                    ? "ثبت‌نام پزشک"
-                    : "ثبت‌نام بیمار"}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center text-sm text-slate-500 lg:text-right">
-              قبلاً حساب ساخته‌اید؟{" "}
-              <Link
-                to={isDoctor ? "/doctor-login" : "/login"}
-                className={`font-black ${
-                  isDoctor ? "text-cyan-700" : "text-emerald-700"
-                }`}
-              >
-                ورود
-              </Link>
+              {(workShift === "afternoon" || workShift === "both") && (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">شروع شیفت عصر</label>
+                    <input
+                      type="time"
+                      value={afternoonStart}
+                      onChange={(e) => setAfternoonStart(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">پایان شیفت عصر</label>
+                    <input
+                      type="time"
+                      value={afternoonEnd}
+                      onChange={(e) => setAfternoonEnd(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </>
+              )}
             </div>
+          )}
+
+          <div className="md:col-span-2 mt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "در حال ثبت‌نام..." : "ثبت‌نام"}
+            </button>
           </div>
-        </div>
-
-        <div className="order-1 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-8 text-white lg:order-2 lg:p-10">
-          <div className="flex h-full flex-col justify-between">
-            <div>
-              <div className="mb-6 inline-flex rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-white/90">
-                DocTime
-              </div>
-              <h2 className="text-3xl font-black leading-tight">
-                نوبت‌دهی آنلاین، ساده و سریع
-              </h2>
-              <p className="mt-4 max-w-md text-sm leading-7 text-white/70">
-                پزشکان و بیماران می‌توانند در یک سیستم یکپارچه ثبت‌نام کنند و
-                فرایند رزرو نوبت را بدون دردسر انجام دهند.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-4">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <p className="text-sm font-bold text-white/80">ویژگی‌ها</p>
-                <ul className="mt-3 space-y-2 text-sm leading-7 text-white/70">
-                  <li>• ثبت‌نام بیمار و پزشک</li>
-                  <li>• انتخاب روزهای حضور در مطب</li>
-                  <li>• تعریف تاریخ شروع برنامه کاری</li>
-                  <li>• تعیین ساعت کاری به صورت 24 ساعتی</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
+        </form>
       </div>
     </div>
   );
