@@ -82,8 +82,17 @@ const ACCESS_TOKEN_KEY = "access_token";
 const ROLE_KEY = "role";
 const USER_KEY = "user";
 
+function normalizeStoredToken(token: string | null): string | null {
+  if (!token) {
+    return null;
+  }
+
+  const normalized = token.trim().replace(/^["']|["']$/g, "");
+  return normalized || null;
+}
+
 export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return normalizeStoredToken(localStorage.getItem(ACCESS_TOKEN_KEY));
 }
 
 // Backward-compatible alias for older imports such as AuthContext.tsx
@@ -109,6 +118,7 @@ export function getStoredUser(): AuthUser | null {
   try {
     return JSON.parse(raw) as AuthUser;
   } catch {
+    localStorage.removeItem(USER_KEY);
     return null;
   }
 }
@@ -191,14 +201,8 @@ function extractValidationArray(detail: unknown[]): string {
           msg?: unknown;
         };
 
-        const loc = Array.isArray(row.loc)
-          ? row.loc.join(" -> ")
-          : "";
-
-        const msg =
-          typeof row.msg === "string"
-            ? row.msg
-            : "Validation error";
+        const loc = Array.isArray(row.loc) ? row.loc.join(" -> ") : "";
+        const msg = typeof row.msg === "string" ? row.msg : "Validation error";
 
         return loc ? `${loc}: ${msg}` : msg;
       }
@@ -220,7 +224,7 @@ export function getError(error: unknown): string {
     if (responseData?.detail !== undefined) {
       const detail = responseData.detail;
 
-      if (typeof detail === "string") {
+      if (typeof detail === "string" && detail.trim()) {
         return detail;
       }
 
@@ -269,7 +273,7 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 }
 
 export async function register(
-  payload: RegisterPayload
+  payload: RegisterPayload,
 ): Promise<RegisterResponse> {
   try {
     const response = await api.post<RegisterResponse>("/auth/register", payload);
@@ -295,6 +299,7 @@ export async function getMe(): Promise<AuthUser> {
       localStorage.setItem(ROLE_KEY, user.role);
     }
 
+    window.dispatchEvent(new Event("auth-change"));
     return user;
   } catch (error) {
     throw new Error(getError(error));

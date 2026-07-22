@@ -5,9 +5,14 @@ import type {
   InternalAxiosRequestConfig,
 } from "axios";
 
+const envBaseUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "");
+
 const BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ||
-  "http://127.0.0.1:8000/api/v1";
+  envBaseUrl || (import.meta.env.DEV ? "http://127.0.0.1:8000/api/v1" : "");
+
+if (!BASE_URL) {
+  throw new Error("VITE_API_URL is not defined for production");
+}
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -16,8 +21,6 @@ const api: AxiosInstance = axios.create({
     Accept: "application/json",
     "Content-Type": "application/json",
   },
-
-  // Authentication is handled with the Authorization header.
   withCredentials: false,
 });
 
@@ -30,10 +33,11 @@ function getAccessToken(): string | null {
 
   const token = storedToken.trim().replace(/^["']|["']$/g, "");
 
-  // Prevent an accidentally stored API response from creating huge headers.
+  // Prevent invalid or accidentally oversized values from being sent as auth headers.
   if (!token || token.length > 10_000) {
     console.warn("Invalid or oversized access token removed");
     localStorage.removeItem("access_token");
+    localStorage.removeItem("role");
     localStorage.removeItem("user");
     return null;
   }
@@ -53,7 +57,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error: AxiosError) => Promise.reject(error)
+  (error: AxiosError) => Promise.reject(error),
 );
 
 api.interceptors.response.use(
@@ -62,11 +66,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       console.warn("Unauthorized - token invalid or expired");
       localStorage.removeItem("access_token");
+      localStorage.removeItem("role");
       localStorage.removeItem("user");
+      window.dispatchEvent(new Event("auth-change"));
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export function isTimeoutError(error: unknown): boolean {
