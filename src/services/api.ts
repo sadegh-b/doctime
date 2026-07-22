@@ -24,7 +24,8 @@ if (!BASE_URL && import.meta.env.PROD) {
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL || undefined,
-  timeout: 30000,
+  // افزایش تایم‌اوت به ۶۰ ثانیه به دلیل تاخیر بیدار شدن سرورهای رایگان Render (Cold Start)
+  timeout: 60000,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",

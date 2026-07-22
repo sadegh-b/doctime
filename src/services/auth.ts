@@ -95,7 +95,6 @@ export function getAccessToken(): string | null {
   return normalizeStoredToken(localStorage.getItem(ACCESS_TOKEN_KEY));
 }
 
-// Backward-compatible alias for older imports such as AuthContext.tsx
 export const getToken = getAccessToken;
 
 export function getRole(): UserRole | null {
@@ -214,6 +213,11 @@ function extractValidationArray(detail: unknown[]): string {
 
 export function getError(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    // بررسی خطای اتمام زمان درخواست (Timeout)
+    if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+      return "پاسخی از سرور دریافت نشد. در حال راه‌اندازی مجدد سرور بک‌اند؛ لطفاً چند لحظه دیگر صفحه را رفرش کنید.";
+    }
+
     const responseData = error.response?.data as
       | {
           detail?: unknown;

@@ -48,10 +48,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const freshUser = await getMe();
       setUser(freshUser);
       setRole(freshUser.role);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Auth check failed:", error);
-      setUser(getStoredUser());
-      setRole(getRole());
+
+      // اگر خطای شبکه یا تایم‌اوت بود، اطلاعات لوکال استوریج را حفظ کن تا کاربر بیهوده بیرون انداخته نشود.
+      // اما اگر خطای احراز هویت (401 یا 403) بود، کاربر را خارج کن.
+      const isAuthError =
+        error?.message?.includes("401") ||
+        error?.message?.includes("403") ||
+        (error?.response && (error.response.status === 401 || error.response.status === 403));
+
+      if (isAuthError) {
+        logoutService();
+        setUser(null);
+        setRole(null);
+      } else {
+        setUser(getStoredUser());
+        setRole(getRole());
+      }
     } finally {
       setIsLoading(false);
     }

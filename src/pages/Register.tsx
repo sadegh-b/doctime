@@ -287,7 +287,7 @@ export default function Register() {
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 md:grid-cols-2"
-          noValidate
+          noValidate={false}
         >
           <div className="md:col-span-2">
             <label
@@ -299,10 +299,12 @@ export default function Register() {
             <input
               id="register-name"
               type="text"
+              name="username"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
               className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 disabled:bg-gray-100"
+              autoComplete="name"
               required
             />
           </div>
@@ -317,6 +319,7 @@ export default function Register() {
             <input
               id="register-phone"
               type="tel"
+              name="phone"
               inputMode="numeric"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -325,6 +328,7 @@ export default function Register() {
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
               placeholder="09123456789"
               dir="ltr"
+              autoComplete="tel"
               required
             />
           </div>
@@ -339,6 +343,7 @@ export default function Register() {
             <input
               id="register-national-id"
               type="text"
+              name="national_id"
               inputMode="numeric"
               value={nationalId}
               onChange={(e) => setNationalId(e.target.value)}
@@ -361,11 +366,13 @@ export default function Register() {
             <input
               id="register-password"
               type="password"
+              name="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
               dir="ltr"
+              autoComplete="new-password"
               required
             />
           </div>
@@ -380,11 +387,13 @@ export default function Register() {
             <input
               id="register-confirm-password"
               type="password"
+              name="confirm-new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={loading}
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
               dir="ltr"
+              autoComplete="new-password"
               required
             />
           </div>
@@ -399,12 +408,14 @@ export default function Register() {
             <input
               id="register-email"
               type="email"
+              name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
               placeholder="example@email.com"
               dir="ltr"
+              autoComplete="email"
             />
           </div>
 
@@ -434,10 +445,14 @@ export default function Register() {
               </h3>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-mcn"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   کد نظام پزشکی
                 </label>
                 <input
+                  id="doctor-mcn"
                   type="text"
                   value={medicalCouncilNumber}
                   onChange={(e) => setMedicalCouncilNumber(e.target.value)}
@@ -448,10 +463,14 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-specialty"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   تخصص
                 </label>
                 <input
+                  id="doctor-specialty"
                   type="text"
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
@@ -462,10 +481,14 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-province"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   استان
                 </label>
                 <input
+                  id="doctor-province"
                   type="text"
                   value={province}
                   onChange={(e) => setProvince(e.target.value)}
@@ -476,10 +499,14 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-city"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   شهر
                 </label>
                 <input
+                  id="doctor-city"
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
@@ -490,10 +517,14 @@ export default function Register() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-address"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   آدرس دقیق مطب
                 </label>
                 <input
+                  id="doctor-address"
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -504,10 +535,14 @@ export default function Register() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-bio"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   معرفی کوتاه / بیوگرافی
                 </label>
                 <textarea
+                  id="doctor-bio"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   disabled={loading}
@@ -517,10 +552,14 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-experience"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   سال‌های تجربه
                 </label>
                 <input
+                  id="doctor-experience"
                   type="text"
                   inputMode="numeric"
                   value={experienceYears}
@@ -533,10 +572,14 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-fee"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   هزینه ویزیت (ریال)
                 </label>
                 <input
+                  id="doctor-fee"
                   type="text"
                   inputMode="numeric"
                   value={consultationFee}
@@ -549,10 +592,14 @@ export default function Register() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="doctor-work-shift"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
                   شیفت کاری
                 </label>
                 <select
+                  id="doctor-work-shift"
                   value={workShift}
                   onChange={(e) =>
                     setWorkShift(
@@ -569,16 +616,18 @@ export default function Register() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
                   روزهای کاری پزشک
-                </label>
+                </span>
                 <div className="grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                  {weekdays.map((day) => (
+                  {weekdays.map((day, idx) => (
                     <label
                       key={day}
+                      htmlFor={`day-checkbox-${idx}`}
                       className="flex cursor-pointer items-center space-x-2 space-x-reverse"
                     >
                       <input
+                        id={`day-checkbox-${idx}`}
                         type="checkbox"
                         checked={workDays.includes(day)}
                         onChange={() => handleDayCheckboxChange(day)}
@@ -593,10 +642,14 @@ export default function Register() {
               {(workShift === "morning" || workShift === "both") && (
                 <>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="doctor-morning-start"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
                       شروع شیفت صبح
                     </label>
                     <input
+                      id="doctor-morning-start"
                       type="time"
                       value={morningStart}
                       onChange={(e) => setMorningStart(e.target.value)}
@@ -606,10 +659,14 @@ export default function Register() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="doctor-morning-end"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
                       پایان شیفت صبح
                     </label>
                     <input
+                      id="doctor-morning-end"
                       type="time"
                       value={morningEnd}
                       onChange={(e) => setMorningEnd(e.target.value)}
@@ -623,10 +680,14 @@ export default function Register() {
               {(workShift === "afternoon" || workShift === "both") && (
                 <>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="doctor-afternoon-start"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
                       شروع شیفت عصر
                     </label>
                     <input
+                      id="doctor-afternoon-start"
                       type="time"
                       value={afternoonStart}
                       onChange={(e) => setAfternoonStart(e.target.value)}
@@ -636,10 +697,14 @@ export default function Register() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="doctor-afternoon-end"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
                       پایان شیفت عصر
                     </label>
                     <input
+                      id="doctor-afternoon-end"
                       type="time"
                       value={afternoonEnd}
                       onChange={(e) => setAfternoonEnd(e.target.value)}
