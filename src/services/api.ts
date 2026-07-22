@@ -5,10 +5,18 @@ import type {
   InternalAxiosRequestConfig,
 } from "axios";
 
-const envBaseUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "");
+const envBaseUrl = (
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL
+)
+  ?.trim()
+  .replace(/\/+$/, "");
 
 const BASE_URL =
-  envBaseUrl || (import.meta.env.DEV ? "http://127.0.0.1:8000/api/v1" : "");
+  envBaseUrl ||
+  (import.meta.env.DEV
+    ? "http://127.0.0.1:8000/api/v1"
+    : "https://doctime-backend-1.onrender.com/api/v1");
 
 if (!BASE_URL && import.meta.env.PROD) {
   console.error("VITE_API_URL is not defined for production");
