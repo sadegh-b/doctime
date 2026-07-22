@@ -251,6 +251,8 @@ async function safeGetList(
 export async function createAppointment(
   payload: CreateAppointmentPayload
 ): Promise<CreateAppointmentResponse> {
+  console.log("POST BODY", payload);
+
   const response = await api.post("/appointments", {
     availability_id: payload.availability_id,
     notes: payload.notes,
