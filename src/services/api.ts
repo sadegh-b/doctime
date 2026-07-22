@@ -24,8 +24,7 @@ if (!BASE_URL && import.meta.env.PROD) {
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL || undefined,
-  // افزایش تایم‌اوت به ۶۰ ثانیه به دلیل تاخیر بیدار شدن سرورهای رایگان Render (Cold Start)
-  timeout: 60000,
+  timeout: 15000,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -36,12 +35,11 @@ const api: AxiosInstance = axios.create({
 function getAccessToken(): string | null {
   const storedToken = localStorage.getItem("access_token");
 
-  if (!storedToken) {
-    return null;
-  }
+  if (!storedToken) return null;
 
   const token = storedToken.trim().replace(/^["']|["']$/g, "");
 
+  // اگر توکن بیش‌ازحد بزرگ باشد، احتمالاً خراب است
   if (!token || token.length > 10_000) {
     console.warn("Invalid or oversized access token removed");
     localStorage.removeItem("access_token");
@@ -71,6 +69,19 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
+    if (error.response?.status === 400) {
+      const data = error.response?.data as { detail?: string } | undefined;
+
+      if (
+        typeof data?.detail === "string" &&
+        data.detail.toLowerCase().includes("request header or cookie too large")
+      ) {
+        console.error(
+          "Backend rejected request because headers/cookies are too large.",
+        );
+      }
+    }
+
     if (error.response?.status === 401) {
       console.warn("Unauthorized - token invalid or expired");
       localStorage.removeItem("access_token");
