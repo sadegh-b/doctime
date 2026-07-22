@@ -1,43 +1,9 @@
 import axios from "axios";
 import api from "./api";
 
-export type UserRole = "patient" | "doctor" | "admin";
+export type UserRole = "patient" | "doctor";
 export type RegisterRole = "patient" | "doctor";
 export type WorkShift = "morning" | "afternoon" | "both";
-
-export interface RegisterPayload {
-  name: string;
-  phone: string;
-  email?: string;
-  password: string;
-  role?: RegisterRole;
-  specialty?: string;
-  city?: string;
-  work_shift?: WorkShift;
-  work_days?: string[];
-  schedule_start_date?: string;
-  morning_start?: string;
-  morning_end?: string;
-  afternoon_start?: string;
-  afternoon_end?: string;
-}
-
-interface NormalizedRegisterPayload {
-  name: string;
-  phone: string;
-  password: string;
-  role: RegisterRole;
-  email?: string;
-  specialty?: string;
-  city?: string;
-  work_shift?: WorkShift;
-  work_days?: string[];
-  schedule_start_date?: string;
-  morning_start?: string;
-  morning_end?: string;
-  afternoon_start?: string;
-  afternoon_end?: string;
-}
 
 export interface LoginPayload {
   phone: string;
@@ -48,227 +14,289 @@ export interface AuthUser {
   id: number;
   name: string;
   phone: string;
-  email?: string | null;
   role: UserRole;
-  is_active?: boolean;
+  email?: string | null;
+  national_id?: string | null;
   specialty?: string | null;
+  sub_specialty?: string | null;
+  province?: string | null;
   city?: string | null;
-  work_shift?: WorkShift | null;
+  address?: string | null;
+  bio?: string | null;
+  experience_years?: number | null;
+  consultation_fee?: number | null;
+  medical_council_number?: string | null;
+}
+
+export interface AuthToken {
+  access_token: string;
+  token_type: string;
 }
 
 export interface AuthResponse {
-  access_token: string;
-  token_type: string;
+  message?: string;
   user: AuthUser;
+  token: AuthToken;
 }
 
-interface ApiErrorResponse {
-  detail?: unknown;
-  message?: unknown;
-  error?: unknown;
+export interface RegisterPayload {
+  name: string;
+  phone: string;
+  password: string;
+  role: RegisterRole;
+
+  national_id?: string | null;
+  email?: string | null;
+
+  medical_council_number?: string | null;
+  specialty?: string | null;
+  sub_specialty?: string | null;
+
+  province?: string | null;
+  city?: string | null;
+  address?: string | null;
+
+  bio?: string | null;
+  experience_years?: number | null;
+  consultation_fee?: number | null;
+
+  work_shift?: WorkShift | null;
+  work_days?: string[] | null;
+
+  schedule_start_date?: string | null;
+
+  morning_start?: string | null;
+  morning_end?: string | null;
+
+  afternoon_start?: string | null;
+  afternoon_end?: string | null;
 }
 
-type MaybeWrappedAuthUser = AuthUser | { user?: AuthUser };
+export interface RegisterResponse {
+  message?: string;
+  user?: AuthUser;
+  token?: AuthToken;
+}
 
 const ACCESS_TOKEN_KEY = "access_token";
 const ROLE_KEY = "role";
-
-// --- Helper Functions ---
-
-function normalizePersianDay(day: string): string {
-  // حذف نیم‌فاصله‌ها و فضاهای اضافی برای اطمینان از یکپارچگی داده‌ها
-  return day
-    .trim()
-    .replace(/\u200c/g, " ")
-    .replace(/\s+/g, " ");
-}
-
-function setAccessToken(token: string): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, token);
-}
+const USER_KEY = "user";
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-function removeAccessToken(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-}
-
-function setRole(role: UserRole): void {
-  localStorage.setItem(ROLE_KEY, role);
-}
+// Backward-compatible alias for older imports such as AuthContext.tsx
+export const getToken = getAccessToken;
 
 export function getRole(): UserRole | null {
   const role = localStorage.getItem(ROLE_KEY);
-  if (role === "patient" || role === "doctor" || role === "admin") {
+
+  if (role === "patient" || role === "doctor") {
     return role;
   }
+
   return null;
 }
 
-function removeRole(): void {
+export function getStoredUser(): AuthUser | null {
+  const raw = localStorage.getItem(USER_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+function saveAuth(data: AuthResponse | RegisterResponse): void {
+  const token = data.token?.access_token;
+  const user = data.user;
+
+  if (token) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  }
+
+  if (user?.role) {
+    localStorage.setItem(ROLE_KEY, user.role);
+  }
+
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+
+  window.dispatchEvent(new Event("auth-change"));
+}
+
+export function logout(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(USER_KEY);
+
+  window.dispatchEvent(new Event("auth-change"));
 }
 
 export function isAuthenticated(): boolean {
   return Boolean(getAccessToken());
 }
 
-function extractValidationMessages(detail: unknown): string | null {
-  if (!Array.isArray(detail) || detail.length === 0) return null;
-  const messages = detail
-    .map((item) => {
-      if (!item || typeof item !== "object") return "";
-      if (!("msg" in item) || typeof item.msg !== "string") return "";
-      return item.msg.trim();
-    })
-    .filter(Boolean);
-  return messages.length > 0 ? messages.join(" | ") : null;
-}
-
-function normalizeOptionalString(value?: string): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
-function extractAuthUser(data: unknown): AuthUser | null {
-  if (!data || typeof data !== "object") return null;
-  const candidate = data as Partial<AuthResponse> & MaybeWrappedAuthUser;
-  if (
-    candidate.id && candidate.name && candidate.phone && candidate.role &&
-    typeof candidate.id === "number" && typeof candidate.name === "string" &&
-    typeof candidate.phone === "string" &&
-    (candidate.role === "patient" || candidate.role === "doctor" || candidate.role === "admin")
-  ) {
-    return candidate as AuthUser;
-  }
-  if ("user" in candidate && candidate.user && typeof candidate.user === "object") {
-    const user = candidate.user as AuthUser;
-    if (typeof user.id === "number" && typeof user.name === "string" && typeof user.phone === "string") return user;
-  }
-  return null;
-}
-
-function extractErrorMessage(error: unknown, fallback: string): string {
-  if (!axios.isAxiosError(error)) {
-    if (error instanceof Error && error.message.trim()) return error.message;
-    return fallback;
-  }
-  if (error.code === "ERR_CANCELED") return "درخواست لغو شد.";
-  if (error.code === "ECONNABORTED" || error.message.toLowerCase().includes("timeout")) return "زمان پاسخ‌گویی سرور طولانی شد.";
-  if (!error.response) return "ارتباط با سرور برقرار نشد.";
-
-  const status = error.response.status;
-  const data = error.response.data as ApiErrorResponse | undefined;
-
-  if (status >= 500) return "خطای داخلی سرور رخ داده است.";
-  const detail = data?.detail;
-  const message = data?.message;
-  const genericError = data?.error;
-
-  if (typeof detail === "string") return detail.trim();
-  const validationMessage = extractValidationMessages(detail);
-  if (validationMessage) return validationMessage;
-  if (typeof message === "string") return message.trim();
-  if (typeof genericError === "string") return genericError.trim();
-
-  return fallback;
-}
-
-function normalizeRegisterPayload(payload: RegisterPayload): NormalizedRegisterPayload {
-  const role = payload.role ?? "patient";
-  const name = payload.name.trim();
-  const phone = payload.phone.trim();
-
-  if (!name || !phone || !payload.password) {
-    throw new Error("نام، شماره موبایل و رمز عبور الزامی هستند.");
+function stringifyObjectError(obj: unknown): string {
+  if (!obj || typeof obj !== "object") {
+    return "";
   }
 
-  const body: NormalizedRegisterPayload = {
-    name,
-    phone,
-    password: payload.password,
-    role,
-  };
+  const record = obj as Record<string, unknown>;
 
-  const email = normalizeOptionalString(payload.email);
-  if (email) body.email = email;
+  if (typeof record.message === "string" && record.message.trim()) {
+    const parts: string[] = [record.message];
 
-  if (role !== "doctor") return body;
+    if (
+      Array.isArray(record.missing_fields) &&
+      record.missing_fields.length > 0
+    ) {
+      parts.push(`فیلدهای ناقص: ${record.missing_fields.join(", ")}`);
+    }
 
-  // اعمال نرمال‌سازی روی لیست روزهای کاری
-  if (payload.work_days && payload.work_days.length > 0) {
-    body.work_days = payload.work_days.map(normalizePersianDay);
+    if (
+      Array.isArray(record.invalid_fields) &&
+      record.invalid_fields.length > 0
+    ) {
+      parts.push(`فیلدهای نامعتبر: ${record.invalid_fields.join(", ")}`);
+    }
+
+    return parts.join(" | ");
   }
 
-  const specialty = normalizeOptionalString(payload.specialty);
-  const city = normalizeOptionalString(payload.city);
-  const scheduleStartDate = normalizeOptionalString(payload.schedule_start_date);
-  const morningStart = normalizeOptionalString(payload.morning_start);
-  const morningEnd = normalizeOptionalString(payload.morning_end);
-  const afternoonStart = normalizeOptionalString(payload.afternoon_start);
-  const afternoonEnd = normalizeOptionalString(payload.afternoon_end);
-
-  if (specialty) body.specialty = specialty;
-  if (city) body.city = city;
-  if (payload.work_shift) body.work_shift = payload.work_shift;
-  if (scheduleStartDate) body.schedule_start_date = scheduleStartDate;
-  if (morningStart) body.morning_start = morningStart;
-  if (morningEnd) body.morning_end = morningEnd;
-  if (afternoonStart) body.afternoon_start = afternoonStart;
-  if (afternoonEnd) body.afternoon_end = afternoonEnd;
-
-  return body;
-}
-
-function saveAuthData(data: AuthResponse): void {
-  if (data.access_token) setAccessToken(data.access_token);
-  if (data.user?.role) setRole(data.user.role);
-  window.dispatchEvent(new Event("auth-change"));
-}
-
-// --- API Methods ---
-
-export async function register(payload: RegisterPayload): Promise<AuthResponse> {
   try {
-    const requestBody = normalizeRegisterPayload(payload);
-    const response = await api.post<AuthResponse>("/auth/register", requestBody);
-    saveAuthData(response.data);
-    return response.data;
-  } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, "خطا در ثبت‌نام"));
+    return JSON.stringify(obj, null, 2);
+  } catch {
+    return "خطای ساختاری از سمت سرور دریافت شد.";
   }
+}
+
+function extractValidationArray(detail: unknown[]): string {
+  return detail
+    .map((item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      if (item && typeof item === "object") {
+        const row = item as {
+          loc?: unknown;
+          msg?: unknown;
+        };
+
+        const loc = Array.isArray(row.loc)
+          ? row.loc.join(" -> ")
+          : "";
+
+        const msg =
+          typeof row.msg === "string"
+            ? row.msg
+            : "Validation error";
+
+        return loc ? `${loc}: ${msg}` : msg;
+      }
+
+      return "Validation error";
+    })
+    .join(" | ");
+}
+
+export function getError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const responseData = error.response?.data as
+      | {
+          detail?: unknown;
+          message?: string;
+        }
+      | undefined;
+
+    if (responseData?.detail !== undefined) {
+      const detail = responseData.detail;
+
+      if (typeof detail === "string") {
+        return detail;
+      }
+
+      if (Array.isArray(detail)) {
+        return extractValidationArray(detail);
+      }
+
+      if (detail && typeof detail === "object") {
+        return stringifyObjectError(detail);
+      }
+    }
+
+    if (
+      typeof responseData?.message === "string" &&
+      responseData.message.trim()
+    ) {
+      return responseData.message;
+    }
+
+    if (typeof error.message === "string" && error.message.trim()) {
+      return error.message;
+    }
+
+    return "خطا در ارتباط با سرور";
+  }
+
+  if (error instanceof Error) {
+    return error.message || "خطا در ارتباط با سرور";
+  }
+
+  return "خطا در ارتباط با سرور";
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   try {
-    const phone = payload.phone?.trim();
-    if (!phone || !payload.password) throw new Error("ورود اطلاعات الزامی است.");
+    const response = await api.post<AuthResponse>("/auth/login", {
+      phone: payload.phone.trim(),
+      password: payload.password,
+    });
 
-    const response = await api.post<AuthResponse>("/auth/login", { phone, password: payload.password });
-    saveAuthData(response.data);
+    saveAuth(response.data);
     return response.data;
-  } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, "خطا در ورود"));
+  } catch (error) {
+    throw new Error(getError(error));
+  }
+}
+
+export async function register(
+  payload: RegisterPayload
+): Promise<RegisterResponse> {
+  try {
+    const response = await api.post<RegisterResponse>("/auth/register", payload);
+
+    if (response.data?.token || response.data?.user) {
+      saveAuth(response.data);
+    }
+
+    return response.data;
+  } catch (error) {
+    throw new Error(getError(error));
   }
 }
 
 export async function getMe(): Promise<AuthUser> {
   try {
-    const response = await api.get<unknown>("/auth/me");
-    const user = extractAuthUser(response.data);
-    if (!user) throw new Error("ساختار پاسخ نامعتبر است.");
-    return user;
-  } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, "دریافت اطلاعات کاربر با خطا مواجه شد."));
-  }
-}
+    const response = await api.get<AuthUser | { user: AuthUser }>("/auth/me");
+    const user = "user" in response.data ? response.data.user : response.data;
 
-export function logout(): void {
-  removeAccessToken();
-  removeRole();
-  localStorage.removeItem("refresh_token");
-  localStorage.removeItem("token");
-  window.dispatchEvent(new Event("auth-change"));
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+    if (user?.role) {
+      localStorage.setItem(ROLE_KEY, user.role);
+    }
+
+    return user;
+  } catch (error) {
+    throw new Error(getError(error));
+  }
 }
