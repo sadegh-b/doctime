@@ -1,6 +1,8 @@
+// Path: src/components/Login.tsx
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, type LoginPayload } from "../services/auth";
+import { login, getError, type LoginPayload } from "../services/auth";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -9,6 +11,7 @@ export default function Login() {
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
@@ -24,11 +27,27 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
+
+    const normalizedPhone = normalizeDigits(phone).replace(/\s+/g, "").trim();
+
+    if (!normalizedPhone) {
+      setError("وارد کردن شماره موبایل الزامی است.");
+      return;
+    }
+
+    if (!/^09\d{9}$/.test(normalizedPhone)) {
+      setError("شماره موبایل نامعتبر است. فرمت صحیح: 09123456789");
+      return;
+    }
+
+    if (!password) {
+      setError("وارد کردن رمز عبور الزامی است.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const normalizedPhone = normalizeDigits(phone).trim();
-
       const payload: LoginPayload = {
         phone: normalizedPhone,
         password,
@@ -38,23 +57,18 @@ export default function Login() {
       await refreshUser();
 
       navigate("/");
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        "ورود ناموفق بود.";
-
-      setError(message);
+    } catch (err: unknown) {
+      setError(getError(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div dir="rtl" className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow">
         <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">
-          ورود
+          ورود به سیستم
         </h1>
 
         {error && (
@@ -71,18 +85,19 @@ export default function Login() {
             >
               شماره موبایل
             </label>
-
             <input
               id="login-phone"
               name="phone"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
               placeholder="09123456789"
               dir="ltr"
               inputMode="numeric"
+              maxLength={11}
               autoComplete="tel"
+              disabled={loading}
               required
             />
           </div>
@@ -94,24 +109,33 @@ export default function Login() {
             >
               رمز عبور
             </label>
-
-            <input
-              id="login-password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-left outline-none focus:border-blue-500"
-              dir="ltr"
-              autoComplete="current-password"
-              required
-            />
+            <div className="relative">
+              <input
+                id="login-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 pl-12 pr-4 py-3 text-left outline-none focus:border-blue-500 disabled:bg-gray-100"
+                dir="ltr"
+                autoComplete="current-password"
+                disabled={loading}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-500 hover:text-blue-600 focus:outline-none"
+              >
+                {showPassword ? "پنهان" : "نمایش"}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "در حال ورود..." : "ورود"}
           </button>

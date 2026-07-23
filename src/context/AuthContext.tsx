@@ -1,10 +1,12 @@
-﻿import {
+﻿// Path: src/context/AuthContext.tsx
+
+import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
+  useContext, // اضافه شد
   type ReactNode,
 } from "react";
 import {
@@ -17,7 +19,7 @@ import {
   type UserRole,
 } from "../services/auth";
 
-interface AuthContextType {
+export interface AuthContextType {
   user: AuthUser | null;
   role: UserRole | null;
   isAuthenticated: boolean;
@@ -26,7 +28,16 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// صادق، این دقیقاً همون بخشی بود که جا انداخته بودی و باعث خطا می‌شد:
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
@@ -50,9 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole(freshUser.role);
     } catch (error: any) {
       console.error("Auth check failed:", error);
-
-      // اگر خطای شبکه یا تایم‌اوت بود، اطلاعات لوکال استوریج را حفظ کن تا کاربر بیهوده بیرون انداخته نشود.
-      // اما اگر خطای احراز هویت (401 یا 403) بود، کاربر را خارج کن.
       const isAuthError =
         error?.message?.includes("401") ||
         error?.message?.includes("403") ||
@@ -73,17 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void checkAuth();
-
     const handleAuthChange = () => {
       setUser(getStoredUser());
       setRole(getRole());
     };
-
     window.addEventListener("auth-change", handleAuthChange);
-
-    return () => {
-      window.removeEventListener("auth-change", handleAuthChange);
-    };
+    return () => window.removeEventListener("auth-change", handleAuthChange);
   }, [checkAuth]);
 
   const logout = useCallback(() => {
@@ -119,14 +122,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthContextType {
-  const context = useContext(AuthContext);
-
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
-  return context;
 }

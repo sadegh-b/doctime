@@ -1,13 +1,22 @@
+// Path: src/services/auth.ts
+
 import axios from "axios";
 import api from "./api";
 
-export type UserRole = "patient" | "doctor";
+// اضافه شدن نقش ادمین برای تطابق کامل با پایگاه داده بک‌ند
+export type UserRole = "patient" | "doctor" | "admin";
 export type RegisterRole = "patient" | "doctor";
 export type WorkShift = "morning" | "afternoon" | "both";
 
 export interface LoginPayload {
   phone: string;
   password: string;
+}
+
+// ساختار دقیق تخصص مطابق با کلیدهای خارجی جدید دیتابیس بک‌ند
+export interface SpecialtyInfo {
+  id: number;
+  name: string;
 }
 
 export interface AuthUser {
@@ -17,7 +26,9 @@ export interface AuthUser {
   role: UserRole;
   email?: string | null;
   national_id?: string | null;
-  specialty?: string | null;
+  // تغییر تخصص به شیء کامل جهت جلوگیری از خطای ناسازگاری فیلد متنی
+  specialty?: SpecialtyInfo | null;
+  specialty_id?: number | null;
   sub_specialty?: string | null;
   province?: string | null;
   city?: string | null;
@@ -49,7 +60,8 @@ export interface RegisterPayload {
   email?: string | null;
 
   medical_council_number?: string | null;
-  specialty?: string | null;
+  // در ثبت‌نام پزشک، آی‌دی تخصص ارسال می‌شود
+  specialty_id?: number | null;
   sub_specialty?: string | null;
 
   province?: string | null;
@@ -86,7 +98,7 @@ function normalizeStoredToken(token: string | null): string | null {
   if (!token) {
     return null;
   }
-
+  // حذف هرگونه کاراکتر نقل‌قول اضافی ناشی از ذخیره‌سازی نادرست
   const normalized = token.trim().replace(/^["']|["']$/g, "");
   return normalized || null;
 }
@@ -100,7 +112,7 @@ export const getToken = getAccessToken;
 export function getRole(): UserRole | null {
   const role = localStorage.getItem(ROLE_KEY);
 
-  if (role === "patient" || role === "doctor") {
+  if (role === "patient" || role === "doctor" || role === "admin") {
     return role;
   }
 
@@ -122,20 +134,37 @@ export function getStoredUser(): AuthUser | null {
   }
 }
 
+// بررسی دقیق داده‌ها قبل از ذخیره‌سازی برای جلوگیری از ورود مقادیر undefined و نشت سشن‌های قبلی
 function saveAuth(data: AuthResponse | RegisterResponse): void {
   const token = data.token?.access_token;
   const user = data.user;
 
-  if (token) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  if (token && typeof token === "string" && token.trim() !== "") {
+    const cleanToken = token.trim();
+    localStorage.setItem(ACCESS_TOKEN_KEY, cleanToken);
+
+    // همگام‌سازی فوری هدر Authorization نمونه api جهت ارسال درخواست‌های بعدی بدون مشکل احراز هویت
+    if (api.defaults.headers) {
+      api.defaults.headers.common["Authorization"] = `Bearer ${cleanToken}`;
+    }
+  } else {
+    // اگر پاسخی دریافتی فاقد توکن معتبر بود، برای امنیت بیشتر توکن‌های پیشین را پاک می‌کنیم
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    if (api.defaults.headers) {
+      delete api.defaults.headers.common["Authorization"];
+    }
   }
 
   if (user?.role) {
     localStorage.setItem(ROLE_KEY, user.role);
+  } else {
+    localStorage.removeItem(ROLE_KEY);
   }
 
-  if (user) {
+  if (user && typeof user === "object") {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(USER_KEY);
   }
 
   window.dispatchEvent(new Event("auth-change"));
@@ -145,6 +174,11 @@ export function logout(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(USER_KEY);
+
+  // حذف هدر توکن از درخواست‌های Axios بعد از خروج کاربر
+  if (api.defaults.headers) {
+    delete api.defaults.headers.common["Authorization"];
+  }
 
   window.dispatchEvent(new Event("auth-change"));
 }
@@ -213,7 +247,6 @@ function extractValidationArray(detail: unknown[]): string {
 
 export function getError(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    // بررسی خطای اتمام زمان درخواست (Timeout)
     if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
       return "پاسخی از سرور دریافت نشد. در حال راه‌اندازی مجدد سرور بک‌اند؛ لطفاً چند لحظه دیگر صفحه را رفرش کنید.";
     }
