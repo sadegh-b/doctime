@@ -1,4 +1,4 @@
-// src/components/ui/Header.tsx
+// Path: frontend/src/components/ui/Header.tsx
 
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";

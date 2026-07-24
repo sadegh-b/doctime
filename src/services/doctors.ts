@@ -1,112 +1,285 @@
-// مسیر: src/services/doctors.ts
-
 import api from "./api";
 
 export interface Doctor {
   id: number;
   user_id: number;
-  name?: string | null;
-  specialty: string;
-  work_shift?: string | null;
-  city?: string | null;
-  address?: string | null;
-  bio?: string | null;
+  name: string;
+  specialty_id: number;
+  specialty_name: string;
+  work_shift: string | null;
+  city: string | null;
+  address: string | null;
+  bio: string | null;
   experience_years: number;
   consultation_fee: number;
-  phone?: string | null;
-  image?: string | null;
+  phone: string | null;
+  image: string | null;
+  rating: number | null;
+  next_available: string | null;
 }
 
-interface DoctorListResponse {
-  success?: boolean;
-  count?: number;
-  items?: unknown[];
-  data?: unknown[];
-}
+type UnknownRecord = Record<string, unknown>;
 
-interface DoctorDetailsResponse {
-  success?: boolean;
-  data?: unknown;
-  item?: unknown;
-}
+const asRecord = (value: unknown): UnknownRecord | null => {
+  return typeof value === "object" && value !== null
+    ? (value as UnknownRecord)
+    : null;
+};
 
-// این اینترفیس برای داده‌هایی است که برای رزرو نوبت به بک‌اِند می‌فرستیم
-export interface AppointmentCreateData {
-  availability_id: number;
-  patient_name?: string;
-  phone_number?: string;
-  note?: string;
-}
+const readString = (...values: unknown[]): string => {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return "";
+};
 
-function normalizeDoctor(item: any): Doctor {
+const readNullableString = (...values: unknown[]): string | null => {
+  const value = readString(...values);
+  return value || null;
+};
+
+const readNumber = (...values: unknown[]): number => {
+  for (const value of values) {
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+      return num;
+    }
+  }
+  return 0;
+};
+
+const buildNameFromUser = (user: UnknownRecord | null): string => {
+  if (!user) {
+    return "";
+  }
+
+  const firstName = readString(
+    user.first_name,
+    user.firstName,
+    user.firstname,
+    user.given_name
+  );
+
+  const lastName = readString(
+    user.last_name,
+    user.lastName,
+    user.lastname,
+    user.family_name
+  );
+
+  const full = [firstName, lastName].filter(Boolean).join(" ").trim();
+  if (full) {
+    return full;
+  }
+
+  return readString(
+    user.name,
+    user.full_name,
+    user.fullName,
+    user.display_name,
+    user.displayName,
+    user.username
+  );
+};
+
+function normalizeDoctor(item: unknown): Doctor {
+  const source = asRecord(item);
+
+  if (!source) {
+    console.error("DATA INTEGRITY ERROR: invalid doctor payload", item);
+    throw new Error("ساختار اطلاعات پزشک معتبر نیست.");
+  }
+
+  const user = asRecord(source.user);
+  const specialty = asRecord(source.specialty);
+
+  const id = readNumber(source.id, source.doctor_id, source.doctorId);
+  const userId = readNumber(
+    source.user_id,
+    source.userId,
+    user?.id,
+    user?.user_id,
+    user?.userId
+  );
+
+  const specialtyId = readNumber(
+    source.specialty_id,
+    source.specialtyId,
+    specialty?.id,
+    specialty?.specialty_id,
+    specialty?.specialtyId
+  );
+
+  const name = readString(
+    source.name,
+    source.doctor_name,
+    source.doctorName,
+    source.user_name,
+    source.userName,
+    source.full_name,
+    source.fullName,
+    buildNameFromUser(user)
+  );
+
+  const specialtyName = readString(
+    source.specialty_name,
+    source.specialtyName,
+    specialty?.name,
+    specialty?.title,
+    specialty?.specialty_name,
+    specialty?.specialtyName
+  );
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0 ||
+    !Number.isInteger(specialtyId) ||
+    specialtyId <= 0 ||
+    !name ||
+    !specialtyName
+  ) {
+    console.error("DOCTOR DETAILS RAW PAYLOAD:", item);
+    console.error("DATA INTEGRITY ERROR: incomplete doctor payload", {
+      id,
+      userId,
+      name,
+      specialtyId,
+      specialtyName,
+      user,
+      specialty,
+      payload: item,
+    });
+
+    throw new Error("اطلاعات ضروری پزشک ناقص است.");
+  }
+
+  const ratingValue = readNumber(source.rating, source.rate, source.score);
+  const experienceYears = readNumber(
+    source.experience_years,
+    source.experienceYears,
+    source.experience,
+    source.years_of_experience
+  );
+
+  const consultationFee = readNumber(
+    source.consultation_fee,
+    source.consultationFee,
+    source.visit_fee,
+    source.visitFee,
+    source.fee,
+    source.price
+  );
+
   return {
-    id: Number(item?.id ?? 0),
-    user_id: Number(item?.user_id ?? item?.user?.id ?? 0),
-    name: item?.name ?? item?.user_name ?? item?.full_name ?? null,
-    specialty: item?.specialty ?? "تخصص ثبت نشده",
-    work_shift: item?.work_shift ?? null,
-    city: item?.city ?? null,
-    address: item?.address ?? null,
-    bio: item?.bio ?? item?.about ?? null,
-    experience_years: Number(item?.experience_years ?? item?.experience ?? 0),
-    consultation_fee: Number(item?.consultation_fee ?? item?.visit_fee ?? 0),
-    phone: item?.phone ?? item?.phone_number ?? null,
-    image: item?.image ?? item?.avatar ?? item?.profile_image ?? null,
+    id,
+    user_id: userId,
+    name,
+    specialty_id: specialtyId,
+    specialty_name: specialtyName,
+    work_shift: readNullableString(
+      source.work_shift,
+      source.workShift,
+      source.shift
+    ),
+    city: readNullableString(source.city),
+    address: readNullableString(source.address, source.location),
+    bio: readNullableString(
+      source.bio,
+      source.about,
+      source.description,
+      source.summary
+    ),
+    experience_years: experienceYears,
+    consultation_fee: consultationFee,
+    phone: readNullableString(
+      source.phone,
+      source.phone_number,
+      source.phoneNumber,
+      user?.phone,
+      user?.phone_number
+    ),
+    image: readNullableString(
+      source.image,
+      source.avatar,
+      source.profile_image,
+      source.profileImage,
+      user?.image,
+      user?.avatar,
+      user?.profile_image
+    ),
+    rating: Number.isFinite(ratingValue) && ratingValue > 0 ? ratingValue : null,
+    next_available: readNullableString(
+      source.next_available,
+      source.nextAvailable
+    ),
   };
 }
 
-function normalizeDoctorsResponse(data: any): Doctor[] {
-  if (Array.isArray(data)) {
-    return data.map(normalizeDoctor);
+function extractDoctorsArray(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
   }
-  if (data && Array.isArray(data.items)) {
-    return data.items.map(normalizeDoctor);
+
+  const source = asRecord(payload);
+  if (!source) {
+    return [];
   }
-  if (data && Array.isArray(data.data)) {
-    return data.data.map(normalizeDoctor);
+
+  const candidates = [
+    source.results,
+    source.data,
+    source.items,
+    source.doctors,
+    source.records,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
   }
+
   return [];
 }
 
-function normalizeSingleDoctorResponse(data: any): Doctor {
-  if (data?.data) {
-    return normalizeDoctor(data.data);
+function normalizeDoctorsListResponse(payload: unknown): Doctor[] {
+  return extractDoctorsArray(payload).map(normalizeDoctor);
+}
+
+function normalizeSingleDoctorResponse(payload: unknown): Doctor {
+  const source = asRecord(payload);
+
+  if (!source) {
+    return normalizeDoctor(payload);
   }
-  if (data?.item) {
-    return normalizeDoctor(data.item);
+
+  const nestedCandidates = [
+    source.data,
+    source.doctor,
+    source.result,
+    source.item,
+  ];
+
+  for (const candidate of nestedCandidates) {
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      return normalizeDoctor(candidate);
+    }
   }
-  return normalizeDoctor(data);
+
+  return normalizeDoctor(payload);
 }
 
 export async function getDoctors(): Promise<Doctor[]> {
-  const response = await api.get<DoctorListResponse | Doctor[]>("/doctors");
-  return normalizeDoctorsResponse(response.data);
+  const response = await api.get("/doctors/");
+  return normalizeDoctorsListResponse(response.data);
 }
 
 export async function getDoctorById(id: number): Promise<Doctor> {
-  const response = await api.get<DoctorDetailsResponse | Doctor>(`/doctors/${id}`);
-  const doctor = normalizeSingleDoctorResponse(response.data);
-  if (!doctor.id) {
-    throw new Error("اطلاعات پزشک معتبر نیست یا پزشک پیدا نشد.");
-  }
-  return doctor;
-}
-
-export async function searchDoctors(
-  params?: Record<string, string | number>
-): Promise<Doctor[]> {
-  const response = await api.get<DoctorListResponse | Doctor[]>("/doctors/search", {
-    params,
-  });
-  return normalizeDoctorsResponse(response.data);
-}
-
-/**
- * ایجاد یک نوبت جدید در سیستم
- * مسیر این API باید در بک‌اِند شما تعریف شده باشد (معمولاً /appointments)
- */
-export async function createAppointment(data: AppointmentCreateData) {
-  // صادق: دقت کن که آدرس "/appointments" باید با بک‌اِند هماهنگ باشد
-  const response = await api.post("/appointments", data);
-  return response.data;
+  const response = await api.get(`/doctors/${id}/`);
+  return normalizeSingleDoctorResponse(response.data);
 }

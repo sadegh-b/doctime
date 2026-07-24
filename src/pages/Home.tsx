@@ -42,8 +42,10 @@ export default function Home() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [specialtiesList, setSpecialtiesList] = useState<SpecialtyItem[]>([]);
+  const [specialtiesList, setSpecialtiesList] = useState<SampleSpecialtiesList>([]);
   const [isSpecialtiesLoading, setIsSpecialtiesLoading] = useState(true);
+
+  type SampleSpecialtiesList = SpecialtyItem[];
 
   const locationRef = useRef<HTMLDivElement>(null);
   const specialtyRef = useRef<HTMLDivElement>(null);
@@ -235,7 +237,10 @@ export default function Home() {
           ))}
         </div>
 
-        {/* 4. Giant and Styled Pistachio Green Special Banner */}
+        {/*
+          4. Giant and Styled Pistachio Green Special Banner
+          اصلاح شده: تغییر از لینک‌های بلاک‌شده واتس‌اپ/تلگرام به فرم ثبت شرح حال داخلی پزشکان
+        */}
         <div className="relative overflow-hidden rounded-[40px] bg-[#E8F5E9] border-2 border-[#C8E6C9] py-14 px-8 sm:px-14 mt-20 shadow-lg shadow-green-100">
           <div className="absolute -top-12 -right-12 w-72 h-72 bg-[#C8E6C9]/40 rounded-full blur-3xl"></div>
 
@@ -249,29 +254,28 @@ export default function Home() {
                   مشاوره تخصصی درمان یبوست و اعتیاد
                 </h4>
                 <p className="text-base sm:text-lg font-bold text-[#2E7D32] mt-3">
-                  جهت ارتباط مستقیم با پزشک و شروع دوره درمان:
+                  با تکمیل فرم دیجیتال شرح حال، اطلاعات شما سریعاً در اختیار پزشک معالج قرار می‌گیرد.
                 </p>
-                <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-x-8 gap-y-3 justify-center md:justify-start text-base sm:text-lg font-black text-[#1B4D22]">
+                <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-x-8 gap-y-3 justify-center md:justify-start text-xs sm:text-sm font-black text-[#2e6932]">
                   <span className="flex items-center gap-3 justify-center md:justify-start">
-                    <span className="w-3 h-3 rounded-full bg-[#4CAF50]"></span>
-                    واتس‌اپ: ۰۹۱۲۳۴۵۶۷۸۹
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span>
+                    بدون نیاز به نصب پیام‌رسان‌های جانبی
                   </span>
                   <span className="flex items-center gap-3 justify-center md:justify-start">
-                    <span className="w-3 h-3 rounded-full bg-[#4CAF50]"></span>
-                    تلگرام: ۰۹۱۲۳۴۵۶۷۸۹
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span>
+                    ارتباط مستقیم تلفنی پزشک پس از ثبت شرح حال
                   </span>
                 </div>
               </div>
             </div>
 
-            <a
-              href="https://wa.me/989123456789"
-              target="_blank"
-              rel="noreferrer"
+            {/* هدایت کاربر به صفحه شرح حال داخلی */}
+            <button
+              onClick={() => navigate("/anamnesis")}
               className="w-full lg:w-auto text-center rounded-2xl bg-[#2E7D32] px-12 py-6 text-base sm:text-lg font-black text-white transition hover:bg-[#1B5E20] hover:scale-[1.04] active:scale-[0.96] shadow-md shadow-green-900/30"
             >
-              ارسال پیام مستقیم
-            </a>
+              ثبت الکترونیکی شرح حال
+            </button>
           </div>
         </div>
 

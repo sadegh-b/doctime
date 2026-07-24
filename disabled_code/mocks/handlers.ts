@@ -9,7 +9,7 @@ export const handlers = [
       {
         id: 1,
         name: "دکتر علی محمدی",
-        specialty: "متخصص قلب و عروق",
+        specialty_name: "قلب و عروق",
         rate: 4.9,
         reviews: 128,
         nextTime: "امروز ساعت ۱۸:۳۰",
@@ -28,7 +28,7 @@ export const handlers = [
       {
         id: 2,
         name: "دکتر فاطمه کریمی",
-        specialty: "متخصص پوست و مو",
+        specialty_name: "پوست و مو",
         rate: 4.8,
         reviews: 94,
         nextTime: "فردا ساعت ۱۰:۰۰",
@@ -47,7 +47,7 @@ export const handlers = [
       {
         id: 3,
         name: "دکتر رضا احمدی",
-        specialty: "متخصص مغز و اعصاب",
+        specialty_name: "مغز و اعصاب",
         rate: 4.7,
         reviews: 76,
         nextTime: "شنبه ساعت ۱۶:۰۰",
@@ -125,9 +125,65 @@ export const handlers = [
     const search = req.url.searchParams.get('search') || '';
     const specialty = req.url.searchParams.get('specialty') || '';
 
-    // داده‌های نمونه
+    // داده‌های نمونه منطبق با ساختار جدید دیتابیس داک‌تایم
     const allDoctors = [
-      // داده‌های پزشکان (همان بالا)
+      {
+        id: 1,
+        name: "دکتر علی محمدی",
+        specialty_name: "قلب و عروق",
+        rate: 4.9,
+        reviews: 128,
+        nextTime: "امروز ساعت ۱۸:۳۰",
+        city: "تهران",
+        image: "ع م",
+        experience: "۱۵ سال سابقه",
+        medicalCode: "۱۲۳۴۵۶",
+        fee: 150000,
+        insurance: ["تأمین اجتماعی", "بیمه سلامت"],
+        visitType: "حضوری و آنلاین",
+        province: "تهران",
+        availableDates: ["1403/02/15", "1403/02/16", "1403/02/17"],
+        education: ["دکترای پزشکی عمومی از دانشگاه تهران", "فوق تخصص قلب و عروق از دانشگاه علوم پزشکی شهید بهشتی"],
+        languages: ["فارسی", "انگلیسی"]
+      },
+      {
+        id: 2,
+        name: "دکتر فاطمه کریمی",
+        specialty_name: "پوست و مو",
+        rate: 4.8,
+        reviews: 94,
+        nextTime: "فردا ساعت ۱۰:۰۰",
+        city: "مشهد",
+        image: "ف ک",
+        experience: "۱۲ سال سابقه",
+        medicalCode: "۳۴۵۶۷۸",
+        fee: 180000,
+        insurance: ["بیمه آسیا", "بیمه سلامت"],
+        visitType: "حضوری",
+        province: "خراسان رضوی",
+        availableDates: ["1403/02/16", "1403/02/17"],
+        education: ["دکترای پزشکی عمومی از دانشگاه مشهد", "فوق تخصص پوست و مو از دانشگاه علوم پزشکی تهران"],
+        languages: ["فارسی"]
+      },
+      {
+        id: 3,
+        name: "دکتر رضا احمدی",
+        specialty_name: "مغز و اعصاب",
+        rate: 4.7,
+        reviews: 76,
+        nextTime: "شنبه ساعت ۱۶:۰۰",
+        city: "اصفهان",
+        image: "ر ا",
+        experience: "۱۰ سال سابقه",
+        medicalCode: "۵۶۷۸۹۰",
+        fee: 200000,
+        insurance: ["تأمین اجتماعی"],
+        visitType: "آنلاین و حضوری",
+        province: "اصفهان",
+        availableDates: ["1403/02/17", "1403/02/18"],
+        education: ["دکترای پزشکی عمومی از دانشگاه اصفهان", "فلوشیپ مغز و اعصاب از دانشگاه علوم پزشکی ایران"],
+        languages: ["فارسی", "انگلیسی", "آلمانی"]
+      }
     ];
 
     let filteredDoctors = allDoctors;
@@ -136,7 +192,7 @@ export const handlers = [
     if (search) {
       filteredDoctors = filteredDoctors.filter(doctor =>
         doctor.name.includes(search) ||
-        doctor.specialty.includes(search) ||
+        (doctor.specialty_name && doctor.specialty_name.includes(search)) ||
         doctor.city.includes(search)
       );
     }
@@ -144,7 +200,7 @@ export const handlers = [
     // فیلتر بر اساس تخصص
     if (specialty) {
       filteredDoctors = filteredDoctors.filter(doctor =>
-        doctor.specialty.includes(specialty)
+        doctor.specialty_name && doctor.specialty_name.includes(specialty)
       );
     }
 
@@ -166,7 +222,63 @@ export const handlers = [
     const { id } = req.params;
 
     const doctors = [
-      // داده‌های پزشکان
+      {
+        id: 1,
+        name: "دکتر علی محمدی",
+        specialty_name: "قلب و عروق",
+        rate: 4.9,
+        reviews: 128,
+        nextTime: "امروز ساعت ۱۸:۳۰",
+        city: "تهران",
+        image: "ع م",
+        experience: "۱۵ سال سابقه",
+        medicalCode: "۱۲۳۴۵۶",
+        fee: 150000,
+        insurance: ["تأمین اجتماعی", "بیمه سلامت"],
+        visitType: "حضوری و آنلاین",
+        province: "تهران",
+        availableDates: ["1403/02/15", "1403/02/16", "1403/02/17"],
+        education: ["دکترای پزشکی عمومی از دانشگاه تهران", "فوق تخصص قلب و عروق از دانشگاه علوم پزشکی شهید بهشتی"],
+        languages: ["فارسی", "انگلیسی"]
+      },
+      {
+        id: 2,
+        name: "دکتر فاطمه کریمی",
+        specialty_name: "پوست و مو",
+        rate: 4.8,
+        reviews: 94,
+        nextTime: "فردا ساعت ۱۰:۰۰",
+        city: "مشهد",
+        image: "ف ک",
+        experience: "۱۲ سال سابقه",
+        medicalCode: "۳۴۵۶۷۸",
+        fee: 180000,
+        insurance: ["بیمه آسیا", "بیمه سلامت"],
+        visitType: "حضوری",
+        province: "خراسان رضوی",
+        availableDates: ["1403/02/16", "1403/02/17"],
+        education: ["دکترای پزشکی عمومی از دانشگاه مشهد", "فوق تخصص پوست و مو از دانشگاه علوم پزشکی تهران"],
+        languages: ["فارسی"]
+      },
+      {
+        id: 3,
+        name: "دکتر رضا احمدی",
+        specialty_name: "مغز و اعصاب",
+        rate: 4.7,
+        reviews: 76,
+        nextTime: "شنبه ساعت ۱۶:۰۰",
+        city: "اصفهان",
+        image: "ر ا",
+        experience: "۱۰ سال سابقه",
+        medicalCode: "۵۶۷۸۹۰",
+        fee: 200000,
+        insurance: ["تأمین اجتماعی"],
+        visitType: "آنلاین و حضوری",
+        province: "اصفهان",
+        availableDates: ["1403/02/17", "1403/02/18"],
+        education: ["دکترای پزشکی عمومی از دانشگاه اصفهان", "فلوشیپ مغز و اعصاب از دانشگاه علوم پزشکی ایران"],
+        languages: ["فارسی", "انگلیسی", "آلمانی"]
+      }
     ];
 
     const doctor = doctors.find(d => d.id === parseInt(id));
