@@ -9,6 +9,7 @@ const Doctors = lazy(() => import("./pages/Doctors"));
 const SearchResults = lazy(() => import("./pages/SearchResults"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
+const VerifyOtp = lazy(() => import("./pages/VerifyOtp"));
 const DoctorLogin = lazy(() => import("./pages/DoctorLogin"));
 const DoctorProfilePage = lazy(() => import("./pages/DoctorProfilePage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
@@ -90,9 +91,11 @@ export default function App() {
             <Route path="/doctors" element={<Doctors />} />
             <Route path="/search" element={<SearchResults />} />
             <Route path="/doctor/:id" element={<DoctorProfilePage />} />
+            <Route path="/doctors/:id" element={<DoctorProfilePage />} />
 
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-otp" element={<VerifyOtp />} />
             <Route path="/doctor-login" element={<DoctorLogin />} />
 
             <Route path="/anamnesis" element={<AnamnesisForm />} />

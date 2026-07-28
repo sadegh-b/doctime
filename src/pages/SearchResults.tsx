@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import api from "../services/api";
 import DoctorCard, { DoctorCardSkeleton } from "../components/DoctorCard";
 import type { Doctor } from "../services/doctors";
 import { Search } from "lucide-react";
@@ -12,32 +12,33 @@ export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q")?.trim() || "";
 
-  // استیت محلی برای نگهداری مقدار ورودی فیلد متنی جستجو
   const [localQuery, setLocalQuery] = useState(query);
 
-  // همگام‌سازی استیت محلی در صورتی که پارامتر URL مستقیماً تغییر کند
   useEffect(() => {
     setLocalQuery(query);
   }, [query]);
 
-  const { data: doctors, isLoading, error, isFetched } = useQuery({
+  const {
+    data: doctors,
+    isLoading,
+    error,
+    isFetched,
+  } = useQuery({
     queryKey: ["search-doctors", query],
     queryFn: async () => {
-      // اگر کوئری خالی بود، درخواستی ارسال نکن
       if (!query) return [];
-      const response = await axios.get(
-        `http://127.0.0.1:8000/api/v1/doctors/search?query=${encodeURIComponent(query)}`
+      const response = await api.get<Doctor[]>(
+        `/doctors/search?query=${encodeURIComponent(query)}`
       );
-      return response.data as Doctor[];
+      return response.data;
     },
-    // فعال‌سازی کوئری فقط زمانی که مقدار جستجو خالی نباشد
     enabled: query.length > 0,
   });
 
-  // مدیریت ثبت فرم جستجو
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = localQuery.trim();
+
     if (trimmed) {
       setSearchParams({ q: trimmed });
     } else {
@@ -47,10 +48,10 @@ export default function SearchResults() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl" dir="rtl">
-
-      {/* بخش باکس جستجوی بزرگ و مدرن در بالای صفحه */}
       <div className="mb-10 max-w-2xl mx-auto text-center">
-        <h1 className="text-3xl font-black text-slate-900 mb-3">جستجوی پزشک و نوبت‌دهی</h1>
+        <h1 className="text-3xl font-black text-slate-900 mb-3">
+          جستجوی پزشک و نوبت‌دهی
+        </h1>
         <p className="text-slate-500 text-sm mb-6">
           نام پزشک، تخصص یا بیماری مورد نظر را وارد کرده و پزشک مناسب خود را پیدا کنید.
         </p>
@@ -76,14 +77,17 @@ export default function SearchResults() {
         </form>
       </div>
 
-      {/* وضعیت نمایش پیام شروع یا نتایج جستجو */}
       {query ? (
         <div className="mb-8 border-b border-slate-200 pb-4">
           <h2 className="text-xl font-bold text-slate-800">
             نتایج جستجو برای: <span className="text-blue-600">«{query}»</span>
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            {isLoading ? "در حال دریافت اطلاعات..." : isFetched ? `${doctors?.length || 0} پزشک پیدا شد.` : ""}
+            {isLoading
+              ? "در حال دریافت اطلاعات..."
+              : isFetched
+                ? `${doctors?.length || 0} پزشک پیدا شد.`
+                : ""}
           </p>
         </div>
       ) : (
@@ -96,7 +100,6 @@ export default function SearchResults() {
         </div>
       )}
 
-      {/* نمایش اسکلتون‌ها در زمان بارگذاری */}
       {isLoading && query && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, index) => (
@@ -105,14 +108,12 @@ export default function SearchResults() {
         </div>
       )}
 
-      {/* مدیریت نمایش خطا */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-center font-bold max-w-xl mx-auto">
           خطایی در برقراری ارتباط با سرور رخ داد. لطفاً اتصال بک‌اند را بررسی کنید.
         </div>
       )}
 
-      {/* نمایش نتایج پزشکان پیدا شده */}
       {isFetched && doctors && doctors.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {doctors.map((doctor) => (
@@ -121,7 +122,6 @@ export default function SearchResults() {
         </div>
       )}
 
-      {/* مدیریت وضعیت پیدا نشدن پزشک */}
       {isFetched && query && doctors && doctors.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
           <span className="text-4xl mb-4">🕵️‍♂️</span>

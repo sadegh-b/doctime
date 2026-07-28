@@ -1,3 +1,5 @@
+// Path: src/services/doctors.ts
+
 import api from "./api";
 
 export interface Doctor {
@@ -126,6 +128,7 @@ function normalizeDoctor(item: unknown): Doctor {
     buildNameFromUser(user)
   );
 
+  // اگر تخصص وجود نداشت، مقدار پیش‌فرض پزشک عمومی را در نظر می‌گیریم تا فرانت کرش نکند
   const specialtyName = readString(
     source.specialty_name,
     source.specialtyName,
@@ -133,22 +136,21 @@ function normalizeDoctor(item: unknown): Doctor {
     specialty?.title,
     specialty?.specialty_name,
     specialty?.specialtyName
-  );
+  ) || "پزشک عمومی";
+
+  const specialtyIdFinal = specialtyId || 1; // مقدار پیش‌فرض شناسه تخصص
 
   if (
     !Number.isInteger(id) ||
     id <= 0 ||
-    !Number.isInteger(specialtyId) ||
-    specialtyId <= 0 ||
-    !name ||
-    !specialtyName
+    !name
   ) {
     console.error("DOCTOR DETAILS RAW PAYLOAD:", item);
     console.error("DATA INTEGRITY ERROR: incomplete doctor payload", {
       id,
       userId,
       name,
-      specialtyId,
+      specialtyId: specialtyIdFinal,
       specialtyName,
       user,
       specialty,
@@ -179,7 +181,7 @@ function normalizeDoctor(item: unknown): Doctor {
     id,
     user_id: userId,
     name,
-    specialty_id: specialtyId,
+    specialty_id: specialtyIdFinal,
     specialty_name: specialtyName,
     work_shift: readNullableString(
       source.work_shift,

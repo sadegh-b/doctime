@@ -1,4 +1,4 @@
-// Path: src/components/Login.tsx
+// Path: src/pages/Login.tsx
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -77,7 +77,7 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate={false}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="login-phone"
