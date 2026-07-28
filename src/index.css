@@ -12,9 +12,15 @@ body,
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* اضافه کردن جهت راست‌چین به صورت پیش‌فرض */
+  direction: rtl;
+  /* اولویت دادن به فونت‌های فارسی استاندارد و مدرن سیستم */
+  font-family: Vazirmatn, "B Yekan", "Shabnam", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: #f8fafc;
   color: #0f172a;
+  /* بهبود رندر فونت روی صفحات نمایشگر */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* بهبود رندر المان‌ها */

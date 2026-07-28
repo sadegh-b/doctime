@@ -1,9 +1,11 @@
-﻿import ReactDOM from "react-dom/client";
+﻿// Path: src/main.tsx
+
+import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import App from "./App";
-import { AuthProvider } from "./context/AuthContext";
+import AuthProvider from "./context/AuthContext"; // براکت‌ها حذف شد تا از خروجی default استفاده کند
 import "./index.css";
 
 const queryClient = new QueryClient({

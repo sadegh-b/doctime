@@ -44,7 +44,7 @@ export interface AuthUser {
   email?: string | null;
   is_active?: boolean;
 
-  // doctor fields ممکن است در /me یا login برای پزشک برگردند
+  // doctor fields
   doctor_id?: number;
   medical_council_number?: string;
   specialty_id?: number;
@@ -70,6 +70,8 @@ export interface BackendAuthResponse {
   message?: string;
   user: AuthUser;
   token?: TokenData;
+  access_token?: string;
+  token_type?: string;
 }
 
 export interface AuthResponse {
@@ -99,16 +101,28 @@ function dispatchAuthChange(): void {
   window.dispatchEvent(new Event("auth-change"));
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function isValidNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function normalizeBackendAuthResponse(data: BackendAuthResponse): AuthResponse {
-  const accessToken = data?.token?.access_token;
+  const accessToken = data?.token?.access_token ?? data?.access_token;
 
   if (!accessToken) {
     throw new Error("توکن دسترسی در پاسخ سرور وجود ندارد.");
   }
 
+  if (!data?.user) {
+    throw new Error("اطلاعات کاربر در پاسخ سرور وجود ندارد.");
+  }
+
   return {
     access_token: accessToken,
-    token_type: data?.token?.token_type ?? "bearer",
+    token_type: data?.token?.token_type ?? data?.token_type ?? "bearer",
     user: data.user,
     message: data.message,
   };
@@ -119,9 +133,11 @@ function normalizeBackendAuthResponse(data: BackendAuthResponse): AuthResponse {
 ========================= */
 
 export function toEnglishDigits(value: string): string {
-  return String(value ?? "")
-    .replace(/[۰-۹]/g, (char) => "۰۱۲۳۴۵۶۷۸۹".indexOf(char).toString())
-    .replace(/[٠-٩]/g, (char) => "٠١٢٣٤٥٦٧٨٩".indexOf(char).toString());
+  if (!value) return "";
+
+  return String(value)
+    .replace(/[۰-۹]/g, (char) => String(char.charCodeAt(0) - 1776))
+    .replace(/[٠-٩]/g, (char) => String(char.charCodeAt(0) - 1632));
 }
 
 export function normalizeText(value: string): string {
@@ -147,25 +163,116 @@ export function normalizeNationalId(value: string): string {
 }
 
 function normalizeRegisterPayload(payload: RegisterPayload): RegisterPayload {
-  return {
-    ...payload,
+  const baseData: RegisterPayload = {
+    role: payload.role,
     name: payload.name?.trim(),
     phone: normalizePhone(payload.phone),
     national_id: normalizeNationalId(payload.national_id),
-    email: payload.email?.trim() || undefined,
     password: payload.password,
-    medical_council_number: payload.medical_council_number?.trim() || undefined,
-    sub_specialty: payload.sub_specialty?.trim() || undefined,
-    province: payload.province?.trim() || undefined,
-    city: payload.city?.trim() || undefined,
-    address: payload.address?.trim() || undefined,
-    bio: payload.bio?.trim() || undefined,
-    morning_start: payload.morning_start?.trim() || undefined,
-    morning_end: payload.morning_end?.trim() || undefined,
-    afternoon_start: payload.afternoon_start?.trim() || undefined,
-    afternoon_end: payload.afternoon_end?.trim() || undefined,
-    schedule_start_date: payload.schedule_start_date?.trim() || undefined,
   };
+
+  if (isNonEmptyString(payload.email)) {
+    baseData.email = payload.email.trim();
+  }
+
+  if (payload.role !== "doctor") {
+    return baseData;
+  }
+
+  const doctorData: RegisterPayload = {
+    ...baseData,
+  };
+
+  if (isNonEmptyString(payload.medical_council_number)) {
+    doctorData.medical_council_number = normalizeText(
+      payload.medical_council_number,
+    );
+  }
+
+  if (typeof payload.specialty_id !== "undefined" && payload.specialty_id !== null) {
+    const specialtyId = Number(payload.specialty_id);
+    if (Number.isFinite(specialtyId) && specialtyId > 0) {
+      doctorData.specialty_id = specialtyId;
+    }
+  }
+
+  if (isNonEmptyString(payload.sub_specialty)) {
+    doctorData.sub_specialty = payload.sub_specialty.trim();
+  }
+
+  if (isNonEmptyString(payload.province)) {
+    doctorData.province = payload.province.trim();
+  }
+
+  if (isNonEmptyString(payload.city)) {
+    doctorData.city = payload.city.trim();
+  }
+
+  if (isNonEmptyString(payload.address)) {
+    doctorData.address = payload.address.trim();
+  }
+
+  if (isValidNumber(payload.latitude)) {
+    doctorData.latitude = payload.latitude;
+  }
+
+  if (isValidNumber(payload.longitude)) {
+    doctorData.longitude = payload.longitude;
+  }
+
+  if (isNonEmptyString(payload.bio)) {
+    doctorData.bio = payload.bio.trim();
+  }
+
+  if (
+    typeof payload.experience_years !== "undefined" &&
+    payload.experience_years !== null
+  ) {
+    const experienceYears = Number(payload.experience_years);
+    if (Number.isFinite(experienceYears) && experienceYears >= 0) {
+      doctorData.experience_years = experienceYears;
+    }
+  }
+
+  if (
+    typeof payload.consultation_fee !== "undefined" &&
+    payload.consultation_fee !== null
+  ) {
+    const consultationFee = Number(payload.consultation_fee);
+    if (Number.isFinite(consultationFee) && consultationFee >= 0) {
+      doctorData.consultation_fee = consultationFee;
+    }
+  }
+
+  if (payload.work_shift) {
+    doctorData.work_shift = payload.work_shift;
+  }
+
+  if (Array.isArray(payload.work_days) && payload.work_days.length > 0) {
+    doctorData.work_days = payload.work_days;
+  }
+
+  if (isNonEmptyString(payload.morning_start)) {
+    doctorData.morning_start = payload.morning_start.trim();
+  }
+
+  if (isNonEmptyString(payload.morning_end)) {
+    doctorData.morning_end = payload.morning_end.trim();
+  }
+
+  if (isNonEmptyString(payload.afternoon_start)) {
+    doctorData.afternoon_start = payload.afternoon_start.trim();
+  }
+
+  if (isNonEmptyString(payload.afternoon_end)) {
+    doctorData.afternoon_end = payload.afternoon_end.trim();
+  }
+
+  if (isNonEmptyString(payload.schedule_start_date)) {
+    doctorData.schedule_start_date = normalizeText(payload.schedule_start_date);
+  }
+
+  return doctorData;
 }
 
 /* =========================
@@ -233,9 +340,6 @@ export function getUser(): AuthUser | null {
   }
 }
 
-/**
- * Legacy compatibility
- */
 export function getStoredUser(): AuthUser | null {
   return getUser();
 }
@@ -256,17 +360,19 @@ export function getRole(): UserRole | null {
 }
 
 export function isAuthenticated(): boolean {
-  return Boolean(getAccessToken() && getRole());
+  return Boolean(getAccessToken() && getRole() && getUser());
+}
+
+export function setStoredUser(user: AuthUser): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(ROLE_KEY, user.role);
+  dispatchAuthChange();
 }
 
 /* =========================
    Auth APIs
 ========================= */
 
-/**
- * Backend route:
- * POST /auth/otp/send
- */
 export async function requestRegisterOtp(phone: string): Promise<OtpSendResponse> {
   const normalizedPhone = normalizePhone(phone);
 
@@ -277,13 +383,6 @@ export async function requestRegisterOtp(phone: string): Promise<OtpSendResponse
   return response.data as OtpSendResponse;
 }
 
-/**
- * Backend route:
- * POST /auth/register?otp_code=123456
- *
- * مهم:
- * otp_code در Query است، نه داخل body
- */
 export async function registerUser(
   payload: RegisterPayload,
   otp: string,
@@ -291,31 +390,44 @@ export async function registerUser(
   const normalizedPayload = normalizeRegisterPayload(payload);
   const normalizedOtp = normalizeText(otp).replace(/\D/g, "");
 
-  const response = await api.post(
-    `/auth/register?otp_code=${encodeURIComponent(normalizedOtp)}`,
-    normalizedPayload,
-  );
+  try {
+    const response = await api.post(
+      `/auth/register?otp_code=${encodeURIComponent(normalizedOtp)}`,
+      normalizedPayload,
+    );
 
-  const backendData = response.data as BackendAuthResponse;
-  const data = normalizeBackendAuthResponse(backendData);
+    const backendData = response.data as BackendAuthResponse;
+    const data = normalizeBackendAuthResponse(backendData);
 
-  saveAuthData(data);
-  clearPendingRegisterPayload();
+    saveAuthData(data);
+    clearPendingRegisterPayload();
 
-  return data;
+    return data;
+  } catch (error: unknown) {
+    console.error("🔴 [REGISTER ERROR]:", error);
+
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error
+    ) {
+      const axiosError = error as {
+        response?: {
+          data?: unknown;
+          status?: number;
+        };
+      };
+
+      console.error("🔴 [SERVER RESPONSE DATA]:", axiosError.response?.data);
+      console.error("🔴 [SERVER STATUS]:", axiosError.response?.status);
+      console.error("🔴 [NORMALIZED PAYLOAD]:", normalizedPayload);
+      console.error("🔴 [NORMALIZED OTP]:", normalizedOtp);
+    }
+
+    throw error;
+  }
 }
 
-/**
- * Backend route:
- * POST /auth/login
- *
- * Backend response:
- * {
- *   message,
- *   user,
- *   token: { access_token, token_type }
- * }
- */
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   const response = await api.post("/auth/login", {
     phone: normalizePhone(payload.phone),
@@ -329,25 +441,12 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   return data;
 }
 
-/**
- * Alias for older code
- */
 export async function loginWithPassword(
   payload: LoginPayload,
 ): Promise<AuthResponse> {
   return login(payload);
 }
 
-/**
- * Backend route:
- * GET /auth/me
- *
- * Backend response:
- * {
- *   message,
- *   user
- * }
- */
 export async function getMe(): Promise<AuthUser> {
   const response = await api.get("/auth/me");
   const data = response.data as BackendAuthResponse;
@@ -358,12 +457,7 @@ export async function getMe(): Promise<AuthUser> {
     throw new Error("اطلاعات کاربر در پاسخ سرور وجود ندارد.");
   }
 
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  if (user?.role) {
-    localStorage.setItem(ROLE_KEY, user.role);
-  }
-
-  dispatchAuthChange();
+  setStoredUser(user);
   return user;
 }
 
@@ -388,7 +482,12 @@ export function getError(error: unknown): string {
 
     if (Array.isArray(responseData?.detail)) {
       return responseData.detail
-        .map((item: { msg?: string }) => item?.msg || "خطای نامشخص")
+        .map((item: { loc?: (string | number)[]; msg?: string }) => {
+          const field = Array.isArray(item?.loc)
+            ? item.loc.join(".")
+            : "unknown";
+          return `${field}: ${item?.msg || "خطای نامشخص"}`;
+        })
         .join(" | ");
     }
 

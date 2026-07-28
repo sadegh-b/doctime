@@ -1,3 +1,5 @@
+// مسیر فایل: src/components/VerifyOtp.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -54,11 +56,12 @@ export default function VerifyOtp() {
     try {
       setLoading(true);
 
+      // اجرای تابع ثبت‌نام که به طور خودکار توکن را نیز با saveAuthData در localStorage ذخیره می‌کند
       const result = await registerUser(userData, normalizedOtp);
-      clearPendingRegisterPayload();
 
       alert(result.message || "ثبت نام با موفقیت انجام شد.");
 
+      // سخت‌گیری: روتینگ منطقی و بلافاصله بر اساس نوع نقش کاربر
       if (result.user?.role === "doctor") {
         navigate("/doctor/dashboard", { replace: true });
       } else {

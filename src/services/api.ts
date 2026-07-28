@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getAccessToken } from "./auth";
+import { getAccessToken, logout } from "./auth";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1",
@@ -9,21 +9,34 @@ const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config) => {
-  const token = getAccessToken();
+api.interceptors.request.use(
+  (config) => {
+    const token = getAccessToken();
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  return config;
-});
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      logout();
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export default api;
 
 /* =========================
    Named API helpers
-   برای رفع import های قبلی
 ========================= */
 
 export async function getSpecialties() {
@@ -31,7 +44,7 @@ export async function getSpecialties() {
   return response.data;
 }
 
-export async function getDoctors(params?: Record<string, any>) {
+export async function getDoctors(params?: Record<string, unknown>) {
   const response = await api.get("/doctors", { params });
   return response.data;
 }
