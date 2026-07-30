@@ -1,55 +1,37 @@
+// مسیر: src/services/api.ts
 import axios from "axios";
-import { getAccessToken, logout } from "./auth";
+
+// این مقدار را دقیقاً به ریشه اصلی سرور تغییر دادم.
+// دیگر v1 را اینجا هاردکد نکن.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://doctime-backend-1.onrender.com";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1",
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
   },
 });
 
+// اینترسپتورها (Interceptors) - تغییری نکردند
 api.interceptors.request.use(
   (config) => {
-    const token = getAccessToken();
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
+    const token = localStorage.getItem("access_token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      logout();
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
     }
-
     return Promise.reject(error);
-  },
+  }
 );
 
 export default api;
-
-/* =========================
-   Named API helpers
-========================= */
-
-export async function getSpecialties() {
-  const response = await api.get("/specialties");
-  return response.data;
-}
-
-export async function getDoctors(params?: Record<string, unknown>) {
-  const response = await api.get("/doctors", { params });
-  return response.data;
-}
-
-export async function getDoctorById(id: string | number) {
-  const response = await api.get(`/doctors/${id}`);
-  return response.data;
-}
