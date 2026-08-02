@@ -1,6 +1,4 @@
-﻿// مسیر فایل: src/context/AuthContext.tsx
-
-import React, {
+﻿import React, {
   createContext,
   useCallback,
   useContext,
@@ -9,122 +7,117 @@ import React, {
   useState,
 } from "react";
 
-import type { AuthUser, AuthResponse } from "../services/auth";
 import {
+  getRole,
   getUser,
-  isAuthenticated as checkAuth,
-  logout as performLogout,
+  isAuthenticated,
+  logout as serviceLogout,
   saveAuthData,
-  setStoredUser,
 } from "../services/auth";
+
+import type { AuthUser, UserRole } from "../services/auth";
 
 export interface AuthContextType {
   user: AuthUser | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (user: AuthUser, token: string) => void;
+  role: UserRole | null;
+  authenticated: boolean;
+  loading: boolean;
+  login: (userData: AuthUser, token: string) => void;
   logout: () => void;
-  updateUser: (user: AuthUser) => void;
-  syncAuth: () => void;
+  refreshUser: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export default function AuthProvider({
-  children,
-}: {
+interface AuthProviderProps {
   children: React.ReactNode;
-}) {
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const syncAuth = useCallback(() => {
-    const storedUser = getUser();
-    const authenticated = checkAuth();
-
-    setUser(authenticated ? storedUser : null);
-    setIsAuthenticated(authenticated);
-
-    if (!authenticated && storedUser) {
-      performLogout();
-    }
+  const resetAuthState = useCallback(() => {
+    setUser(null);
+    setRole(null);
+    setAuthenticated(false);
   }, []);
 
-  useEffect(() => {
-    try {
-      syncAuth();
-    } catch (error) {
-      console.error("Error loading auth data from storage:", error);
-      performLogout();
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
+  const syncAuthState = useCallback(() => {
+    if (!isAuthenticated()) {
+      resetAuthState();
+      setLoading(false);
+      return;
     }
 
-    const handleAuthChange = () => {
-      syncAuth();
-    };
+    const storedUser = getUser();
+    const storedRole = getRole();
 
-    const handleStorageChange = (event: StorageEvent) => {
-      if (
-        event.key === "access_token" ||
-        event.key === "user" ||
-        event.key === "role" ||
-        event.key === null
-      ) {
-        syncAuth();
-      }
-    };
+    if (!storedUser || !storedRole || storedUser.role !== storedRole) {
+      serviceLogout();
+      resetAuthState();
+      setLoading(false);
+      return;
+    }
 
-    window.addEventListener("auth-change", handleAuthChange);
-    window.addEventListener("storage", handleStorageChange);
+    setUser(storedUser);
+    setRole(storedRole);
+    setAuthenticated(true);
+    setLoading(false);
+  }, [resetAuthState]);
+
+  useEffect(() => {
+    syncAuthState();
+
+    window.addEventListener("auth-change", syncAuthState);
 
     return () => {
-      window.removeEventListener("auth-change", handleAuthChange);
-      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("auth-change", syncAuthState);
     };
-  }, [syncAuth]);
+  }, [syncAuthState]);
 
   const login = useCallback((userData: AuthUser, token: string) => {
-    const authData: AuthResponse = {
+    saveAuthData({
       access_token: token,
       token_type: "bearer",
       user: userData,
-    };
+    });
 
-    saveAuthData(authData);
-    syncAuth();
-  }, [syncAuth]);
+    setUser(userData);
+    setRole(userData.role);
+    setAuthenticated(true);
 
-  const logout = useCallback(() => {
-    performLogout();
-    setUser(null);
-    setIsAuthenticated(false);
+    window.dispatchEvent(new Event("auth-change"));
   }, []);
 
-  const updateUser = useCallback((userData: AuthUser) => {
-    setStoredUser(userData);
-    syncAuth();
-  }, [syncAuth]);
+  const logout = useCallback(() => {
+    serviceLogout();
+    resetAuthState();
+    window.dispatchEvent(new Event("auth-change"));
+  }, [resetAuthState]);
 
-  const contextValue = useMemo(
+  const refreshUser = useCallback(() => {
+    syncAuthState();
+  }, [syncAuthState]);
+
+  const value = useMemo<AuthContextType>(
     () => ({
       user,
-      isAuthenticated,
-      isLoading,
+      role,
+      authenticated,
+      loading,
       login,
       logout,
-      updateUser,
-      syncAuth,
+      refreshUser,
     }),
-    [user, isAuthenticated, isLoading, login, logout, updateUser, syncAuth],
+    [user, role, authenticated, loading, login, logout, refreshUser]
   );
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }
@@ -132,7 +125,7 @@ export default function AuthProvider({
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
 
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
 

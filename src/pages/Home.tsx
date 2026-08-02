@@ -1,291 +1,590 @@
-﻿// Path: doctime-frontend/src/pages/Home.tsx
-
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import {
-  Search,
-  MapPin,
-  Stethoscope,
-  ChevronDown,
-  Sparkles,
-  HeartPulse,
-  Brain,
-  Baby,
-  Activity,
-  ArrowLeft,
-  MessageSquare,
-} from "lucide-react";
-
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { PROVINCES_CITIES } from "../data/provinces";
-import { specialties as fallbackSpecialties } from "../data/specialties";
-import { getSpecialties } from "../services/api";
+import { specialties } from "../data/specialties";
+import { TOP_DOCTORS, ARTICLES } from "../data/mockData";
+import BookingCalendar from "../components/BookingCalendar";
+import SafeImage from "../components/common/SafeImage";
 
-interface SpecialtyItem {
-  value: string;
-  label: string;
-  icon?: React.ReactNode;
-  color?: string;
-}
+const HOME_SERVICES = [
+  {
+    id: 1,
+    title: "نوبت پزشکان",
+    desc: "رزرو نوبت حضوری پزشکان متخصص، عمومی و فوق تخصص",
+    icon: "🩺",
+    href: "/doctors",
+  },
+  {
+    id: 2,
+    title: "کلینیک",
+    desc: "مشاهده کلینیک‌ها، خدمات درمانی و رزرو نوبت",
+    icon: "🏥",
+    href: "/clinics",
+  },
+  {
+    id: 3,
+    title: "آزمایشگاه",
+    desc: "جستجوی آزمایشگاه‌ها و دریافت نوبت خدمات آزمایش",
+    icon: "🧪",
+    href: "/labs",
+  },
+  {
+    id: 4,
+    title: "بیمارستان",
+    desc: "یافتن بیمارستان‌ها، مراکز تخصصی و خدمات بستری",
+    icon: "🏨",
+    href: "/hospitals",
+  },
+  {
+    id: 5,
+    title: "پزشکان آنلاین",
+    desc: "مشاوره پزشکی آنلاین، متنی، صوتی یا تصویری",
+    icon: "💻",
+    href: "/online-doctors",
+  },
+  {
+    id: 6,
+    title: "پزشکان خیریه",
+    desc: "پزشکان خیریه با امکان ویزیت حضوری یا آنلاین",
+    icon: "🤝",
+    href: "/charity-doctors",
+  },
+];
 
-const FEATURED_SPECIALTIES = [
-  { id: 1, name: "قلب و عروق", slug: "cardiology", icon: <HeartPulse />, color: "bg-rose-100/70 text-rose-600 border border-rose-200" },
-  { id: 2, name: "مغز و اعصاب", slug: "neurology", icon: <Brain />, color: "bg-indigo-100/70 text-indigo-600 border border-indigo-200" },
-  { id: 3, name: "کودکان", slug: "pediatrics", icon: <Baby />, color: "bg-amber-100/70 text-amber-600 border border-amber-200" },
-  { id: 4, name: "داخلی", slug: "internal", icon: <Activity />, color: "bg-emerald-100/70 text-emerald-600 border border-emerald-200" },
+const WHY_DOCTIME_ITEMS = [
+  {
+    id: 1,
+    icon: "⚡",
+    title: "نوبت‌گیری سریع",
+    desc: "در چند ثانیه پزشک، کلینیک یا مرکز درمانی موردنظر خود را پیدا کنید.",
+  },
+  {
+    id: 2,
+    icon: "🩺",
+    title: "پزشکان معتبر",
+    desc: "پروفایل پزشکان با تخصص، امتیاز و زمان حضور نمایش داده می‌شود.",
+  },
+  {
+    id: 3,
+    icon: "📅",
+    title: "رزرو ۲۴ ساعته",
+    desc: "بدون تماس تلفنی، در هر ساعت نوبت خود را ثبت کنید.",
+  },
+  {
+    id: 4,
+    icon: "💻",
+    title: "حضوری و آنلاین",
+    desc: "امکان رزرو ویزیت حضوری، تصویری، صوتی یا متنی.",
+  },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
+
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isSpecialtyOpen, setIsSpecialtyOpen] = useState(false);
+
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [specialtiesList, setSpecialtiesList] = useState<SampleSpecialtiesList>([]);
-  const [isSpecialtiesLoading, setIsSpecialtiesLoading] = useState(true);
 
-  type SampleSpecialtiesList = SpecialtyItem[];
+  const [selectedDoctorId, setSelectedDoctorId] = useState<number | null>(
+    TOP_DOCTORS[0]?.id ?? null
+  );
 
   const locationRef = useRef<HTMLDivElement>(null);
   const specialtyRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function loadSpecialties() {
-      try {
-        setIsSpecialtiesLoading(true);
-        const data = await getSpecialties();
-        setSpecialtiesList(data.map((s: any) => ({ value: s.slug || s.id.toString(), label: s.name })));
-      } catch (error) {
-        setSpecialtiesList(fallbackSpecialties);
-      } finally {
-        setIsSpecialtiesLoading(false);
-      }
-    }
-    loadSpecialties();
-  }, []);
-
   const availableCities = useMemo(() => {
     if (!selectedProvince) return [];
-    return PROVINCES_CITIES.find((p) => p.name === selectedProvince)?.cities ?? [];
+    const province = PROVINCES_CITIES.find((item) => item.name === selectedProvince);
+    return province?.cities ?? [];
   }, [selectedProvince]);
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (locationRef.current && !locationRef.current.contains(e.target as Node)) setIsLocationOpen(false);
-      if (specialtyRef.current && !specialtyRef.current.contains(e.target as Node)) setIsSpecialtyOpen(false);
+  const selectedDoctor = useMemo(
+    () => TOP_DOCTORS.find((doc) => doc.id === selectedDoctorId) ?? null,
+    [selectedDoctorId]
+  );
+
+  const activeFilters = useMemo(() => {
+    const items: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (selectedProvince) {
+      items.push({
+        key: "province",
+        label: `استان: ${selectedProvince}`,
+        onRemove: () => {
+          setSelectedProvince(null);
+          setSelectedCity(null);
+        },
+      });
     }
+
+    if (selectedCity) {
+      items.push({
+        key: "city",
+        label: `شهر: ${selectedCity}`,
+        onRemove: () => setSelectedCity(null),
+      });
+    }
+
+    if (selectedSpecialty) {
+      const specialtyLabel =
+        specialties.find((item) => item.value === selectedSpecialty)?.label ??
+        selectedSpecialty;
+
+      items.push({
+        key: "specialty",
+        label: `تخصص: ${specialtyLabel}`,
+        onRemove: () => setSelectedSpecialty(null),
+      });
+    }
+
+    if (searchQuery.trim()) {
+      items.push({
+        key: "query",
+        label: `جستجو: ${searchQuery.trim()}`,
+        onRemove: () => setSearchQuery(""),
+      });
+    }
+
+    return items;
+  }, [selectedProvince, selectedCity, selectedSpecialty, searchQuery]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        locationRef.current &&
+        !locationRef.current.contains(event.target as Node)
+      ) {
+        setIsLocationOpen(false);
+      }
+
+      if (
+        specialtyRef.current &&
+        !specialtyRef.current.contains(event.target as Node)
+      ) {
+        setIsSpecialtyOpen(false);
+      }
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleResetFilters = () => {
+    setSelectedProvince(null);
+    setSelectedCity(null);
+    setSelectedSpecialty(null);
+    setSearchQuery("");
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const p = new URLSearchParams();
-    if (selectedProvince) p.set("province", selectedProvince);
-    if (selectedCity) p.set("city", selectedCity);
-    if (selectedSpecialty) p.set("specialty", selectedSpecialty);
-    if (searchQuery.trim()) p.set("q", searchQuery.trim());
-    navigate(`/search?${p.toString()}`);
+
+    const params = new URLSearchParams();
+    if (selectedProvince) params.set("province", selectedProvince);
+    if (selectedCity) params.set("city", selectedCity);
+    if (selectedSpecialty) params.set("specialty", selectedSpecialty);
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+
+    navigate(`/search?${params.toString()}`);
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20">
-
-      {/* 1. Optimized Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/70 via-indigo-50/20 to-transparent pt-12 pb-24 px-4 text-center">
-        <div className="relative z-10 mx-auto max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-100/80 border border-blue-200 px-4 py-1.5 text-xs sm:text-sm font-black text-blue-800 mb-6">
-             <Sparkles size={14} className="animate-pulse" /> نوبت‌دهی آنلاین پزشکان
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-950 mb-6 leading-tight tracking-tight">
-            سریع، مطمئن و بدون معطلی نوبت بگیرید
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* Hero */}
+      <section className="border-b border-blue-100 bg-blue-600">
+        <div className="mx-auto max-w-5xl px-4 py-14 text-center md:py-20">
+          <h1 className="text-2xl font-black text-white md:text-4xl">
+            رزرو آنلاین نوبت پزشک، کلینیک، آزمایشگاه و بیمارستان
           </h1>
-
-          <p className="text-slate-600 text-sm sm:text-base font-bold px-4 leading-relaxed max-w-2xl mx-auto">
-            پزشک خود را جستجو کنید و در کمتر از یک دقیقه نوبت خود را آنلاین ثبت کنید.
+          <p className="mx-auto mt-4 max-w-xl text-sm font-medium text-blue-100 md:text-base">
+            نوبت خود را در کمتر از یک دقیقه، بدون تماس تلفنی رزرو کنید.
           </p>
+
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              to="/search"
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-white px-8 text-sm font-bold text-blue-700 shadow-sm transition hover:bg-blue-50"
+            >
+              شروع جستجو
+            </Link>
+            <Link
+              to="/doctors"
+              className="inline-flex h-12 items-center justify-center rounded-xl border border-blue-400 px-8 text-sm font-bold text-white transition hover:bg-blue-500"
+            >
+              مشاهده پزشکان
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* 2. Floating Search Box */}
-      <section className="relative z-50 mx-auto -mt-12 max-w-6xl px-4">
+      {/* Search card */}
+      <section className="mx-auto -mt-8 max-w-4xl px-4">
         <form
-          onSubmit={handleSearch}
-          className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.08)] md:p-6"
+          onSubmit={handleSearchSubmit}
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg md:p-6"
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1.2fr_1.8fr_auto]">
-            {/* Location Selector */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {/* Location */}
             <div ref={locationRef} className="relative">
               <button
                 type="button"
-                onClick={() => { setIsLocationOpen(!isLocationOpen); setIsSpecialtyOpen(false); }}
-                className="flex min-h-[72px] w-full items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 px-5 transition hover:bg-white hover:border-blue-200 hover:shadow-sm"
+                aria-expanded={isLocationOpen}
+                onClick={() => {
+                  setIsLocationOpen((prev) => !prev);
+                  setIsSpecialtyOpen(false);
+                }}
+                className="flex h-16 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 text-right transition hover:border-blue-300"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm">
-                  <MapPin size={22} className="text-blue-600" />
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-slate-400">
+                    استان{selectedCity ? " / شهر" : ""}
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold text-slate-900">
+                    {selectedCity
+                      ? `${selectedProvince} - ${selectedCity}`
+                      : selectedProvince || "انتخاب استان"}
+                  </p>
                 </div>
-                <div className="flex flex-col text-right overflow-hidden">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">موقعیت شما</span>
-                  <span className="truncate text-sm sm:text-base font-black text-slate-800 mt-0.5">
-                    {selectedCity ? `${selectedProvince}، ${selectedCity}` : selectedProvince || "انتخاب شهر"}
-                  </span>
-                </div>
-                <ChevronDown size={18} className="mr-auto text-slate-400" />
+                <span className="text-lg text-blue-600">📍</span>
               </button>
 
               {isLocationOpen && (
-                <div className="absolute right-0 top-[calc(100%+8px)] z-[100] w-full md:w-[480px] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl grid grid-cols-2 h-[320px]">
-                  <div className="overflow-y-auto border-l border-slate-100 p-3 space-y-1 text-right">
-                    <span className="block p-2 text-xs font-black text-slate-400">استان‌ها</span>
-                    {PROVINCES_CITIES.map((p) => (
-                      <button key={p.name} type="button" onClick={() => { setSelectedProvince(p.name); setSelectedCity(null); }}
-                        className={`w-full text-right rounded-lg px-4 py-2.5 text-sm font-bold transition ${selectedProvince === p.name ? "bg-blue-600 text-white shadow-md" : "text-slate-600 hover:bg-slate-50"}`}>
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="overflow-y-auto p-3 space-y-1 text-right">
-                    <span className="block p-2 text-xs font-black text-slate-400">شهرها</span>
-                    {selectedProvince ? availableCities.map((c) => (
-                      <button key={c} type="button" onClick={() => { setSelectedCity(c); setIsLocationOpen(false); }}
-                        className={`w-full text-right rounded-lg px-4 py-2.5 text-sm font-bold transition ${selectedCity === c ? "bg-blue-600 text-white shadow-md" : "text-slate-600 hover:bg-slate-50"}`}>
-                        {c}
-                      </button>
-                    )) : <div className="p-8 text-center text-sm font-bold text-slate-400">ابتدا استان را انتخاب کنید</div>}
+                <div className="absolute right-0 top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:w-[560px]">
+                  <div className="grid h-[340px] grid-cols-2">
+                    <div className="overflow-y-auto border-l border-slate-100 p-3">
+                      <h3 className="mb-2 px-1 text-xs font-bold text-slate-400">
+                        استان‌ها
+                      </h3>
+                      <div className="space-y-1">
+                        {PROVINCES_CITIES.map((province) => {
+                          const active = selectedProvince === province.name;
+                          return (
+                            <button
+                              key={province.name}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProvince(province.name);
+                                setSelectedCity(null);
+                              }}
+                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                                active
+                                  ? "bg-blue-600 text-white"
+                                  : "text-slate-700 hover:bg-blue-50"
+                              }`}
+                            >
+                              <span>{province.name}</span>
+                              {active && <span>✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="overflow-y-auto p-3">
+                      <h3 className="mb-2 px-1 text-xs font-bold text-slate-400">
+                        شهرهای {selectedProvince || "..."}
+                      </h3>
+
+                      {selectedProvince ? (
+                        <div className="space-y-1">
+                          {availableCities.map((city) => {
+                            const active = selectedCity === city;
+                            return (
+                              <button
+                                key={city}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCity(city);
+                                  setIsLocationOpen(false);
+                                }}
+                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                                  active
+                                    ? "bg-blue-600 text-white"
+                                    : "text-slate-700 hover:bg-blue-50"
+                                }`}
+                              >
+                                <span>{city}</span>
+                                {active && <span>✓</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex h-full min-h-[200px] items-center justify-center rounded-lg bg-slate-50 p-4 text-center text-xs font-semibold text-slate-400">
+                          ابتدا یک استان را انتخاب کنید
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Specialty Selector */}
+            {/* Specialty */}
             <div ref={specialtyRef} className="relative">
               <button
                 type="button"
-                onClick={() => { setIsSpecialtyOpen(!isSpecialtyOpen); setIsLocationOpen(false); }}
-                className="flex min-h-[72px] w-full items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 px-5 transition hover:bg-white hover:border-blue-200 hover:shadow-sm"
+                aria-expanded={isSpecialtyOpen}
+                onClick={() => {
+                  setIsSpecialtyOpen((prev) => !prev);
+                  setIsLocationOpen(false);
+                }}
+                className="flex h-16 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 text-right transition hover:border-blue-300"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm">
-                  <Stethoscope size={22} className="text-blue-600" />
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-slate-400">تخصص</p>
+                  <p className="mt-0.5 text-sm font-bold text-slate-900">
+                    {selectedSpecialty
+                      ? specialties.find((item) => item.value === selectedSpecialty)
+                          ?.label ?? selectedSpecialty
+                      : "لیست تخصص‌ها"}
+                  </p>
                 </div>
-                <div className="flex flex-col text-right overflow-hidden">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">تخصص پزشکی</span>
-                  <span className="truncate text-sm sm:text-base font-black text-slate-800 mt-0.5">
-                    {selectedSpecialty ? specialtiesList.find(s => s.value === selectedSpecialty)?.label : "همه تخصص‌ها"}
-                  </span>
-                </div>
-                <ChevronDown size={18} className="mr-auto text-slate-400" />
+                <span className="text-lg text-blue-600">🩺</span>
               </button>
 
               {isSpecialtyOpen && (
-                <div className="absolute right-0 top-[calc(100%+8px)] z-[100] max-h-[300px] w-full overflow-y-auto rounded-xl border border-slate-100 bg-white p-3 shadow-2xl">
-                  {specialtiesList.map((s) => (
-                    <button key={s.value} type="button" onClick={() => { setSelectedSpecialty(s.value); setIsSpecialtyOpen(false); }}
-                      className={`w-full text-right rounded-lg px-4 py-2.5 text-sm font-bold transition mb-1 ${selectedSpecialty === s.value ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
-                      {s.label}
-                    </button>
-                  ))}
+                <div className="absolute right-0 top-full z-50 mt-2 max-h-[340px] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSpecialty(null);
+                      setIsSpecialtyOpen(false);
+                    }}
+                    className="mb-1 flex w-full items-center justify-between rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                  >
+                    <span>همه تخصص‌ها</span>
+                  </button>
+
+                  <div className="space-y-1">
+                    {specialties.map((spec) => {
+                      const active = selectedSpecialty === spec.value;
+                      return (
+                        <button
+                          key={spec.value}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSpecialty(spec.value);
+                            setIsSpecialtyOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                            active
+                              ? "bg-blue-600 text-white"
+                              : "text-slate-700 hover:bg-blue-50"
+                          }`}
+                        >
+                          <span>{spec.label}</span>
+                          {active && <span>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Input Keyword */}
-            <div className="relative">
-              <Search size={22} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="نام پزشک، بیماری..."
-                className="min-h-[72px] w-full rounded-2xl border border-slate-100 bg-slate-50 py-3 pl-5 pr-14 text-sm sm:text-base font-bold text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-200 text-right placeholder-slate-400"
-              />
-            </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="جستجوی نام پزشک، تخصص یا بیماری..."
+              className="h-14 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-800 transition focus:border-blue-400 focus:bg-white focus:outline-none"
+            />
 
-            {/* Submit Button */}
             <button
               type="submit"
-              className="min-h-[72px] rounded-2xl bg-blue-600 px-10 text-sm sm:text-base font-black text-white shadow-md transition hover:bg-blue-700 hover:scale-[1.01] active:scale-[0.99]"
+              className="h-14 rounded-xl bg-blue-600 px-8 text-sm font-bold text-white transition hover:bg-blue-700"
             >
               جستجو
             </button>
           </div>
+
+          {activeFilters.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+              {activeFilters.map((filter) => (
+                <div
+                  key={filter.key}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700"
+                >
+                  <span>{filter.label}</span>
+                  <button
+                    type="button"
+                    onClick={filter.onRemove}
+                    className="hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="mr-auto text-xs font-bold text-red-600 hover:underline"
+              >
+                پاک کردن همه
+              </button>
+            </div>
+          )}
         </form>
       </section>
 
-      {/* 3. Featured Specialties */}
-      <section className="mx-auto mt-20 max-w-6xl px-4">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900">تخصص‌های پرطرفدار</h2>
-          <Link to="/specialties" className="flex items-center gap-2 text-sm font-black text-blue-600 hover:underline">
-            مشاهده همه <ArrowLeft size={16} />
-          </Link>
-        </div>
+      {/* Services */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <h2 className="text-center text-2xl font-black text-slate-900 md:text-3xl">
+          خدمات نوبت‌دهی داک‌تایم
+        </h2>
 
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-          {FEATURED_SPECIALTIES.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => navigate(`/search?q=${item.name}`)}
-              className="group cursor-pointer rounded-[24px] border border-slate-100 bg-white p-6 text-center transition hover:shadow-md hover:border-blue-100"
+        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {HOME_SERVICES.map((service) => (
+            <Link
+              key={service.id}
+              to={service.href}
+              className="group rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-blue-300 hover:shadow-md"
             >
-              <div className={`mx-auto mb-4 flex h-14 w-16 items-center justify-center rounded-2xl ${item.color} transition group-hover:scale-105`}>
-                {React.cloneElement(item.icon as React.ReactElement, { size: 28 })}
-              </div>
-              <h3 className="text-sm sm:text-base font-black text-slate-800">{item.name}</h3>
-            </div>
+              <span className="text-3xl">{service.icon}</span>
+              <h3 className="mt-4 text-lg font-black text-slate-900 group-hover:text-blue-700">
+                {service.title}
+              </h3>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                {service.desc}
+              </p>
+            </Link>
           ))}
-        </div>
-
-        {/*
-          4. Giant and Styled Pistachio Green Special Banner
-          اصلاح شده: تغییر از لینک‌های بلاک‌شده واتس‌اپ/تلگرام به فرم ثبت شرح حال داخلی پزشکان
-        */}
-        <div className="relative overflow-hidden rounded-[40px] bg-[#E8F5E9] border-2 border-[#C8E6C9] py-14 px-8 sm:px-14 mt-20 shadow-lg shadow-green-100">
-          <div className="absolute -top-12 -right-12 w-72 h-72 bg-[#C8E6C9]/40 rounded-full blur-3xl"></div>
-
-          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-10">
-            <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-right">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-[#C8E6C9]/85 text-[#2B5B2E] shadow-inner">
-                <MessageSquare size={48} />
-              </div>
-              <div>
-                <h4 className="text-2xl sm:text-4xl font-black text-[#1B4D22] leading-tight">
-                  مشاوره تخصصی درمان یبوست و اعتیاد
-                </h4>
-                <p className="text-base sm:text-lg font-bold text-[#2E7D32] mt-3">
-                  با تکمیل فرم دیجیتال شرح حال، اطلاعات شما سریعاً در اختیار پزشک معالج قرار می‌گیرد.
-                </p>
-                <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-x-8 gap-y-3 justify-center md:justify-start text-xs sm:text-sm font-black text-[#2e6932]">
-                  <span className="flex items-center gap-3 justify-center md:justify-start">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span>
-                    بدون نیاز به نصب پیام‌رسان‌های جانبی
-                  </span>
-                  <span className="flex items-center gap-3 justify-center md:justify-start">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span>
-                    ارتباط مستقیم تلفنی پزشک پس از ثبت شرح حال
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* هدایت کاربر به صفحه شرح حال داخلی */}
-            <button
-              onClick={() => navigate("/anamnesis")}
-              className="w-full lg:w-auto text-center rounded-2xl bg-[#2E7D32] px-12 py-6 text-base sm:text-lg font-black text-white transition hover:bg-[#1B5E20] hover:scale-[1.04] active:scale-[0.96] shadow-md shadow-green-900/30"
-            >
-              ثبت الکترونیکی شرح حال
-            </button>
-          </div>
-        </div>
-
-        {/* Footer Bottom */}
-        <div className="mx-auto max-w-6xl px-4 mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] font-bold text-slate-400">
-          <p>© ۲۰۲۶ DocTime. تمامی حقوق این سامانه محفوظ است.</p>
-          <p>طراح و توسعه‌دهنده: <span className="text-slate-600 font-black">محمدصادق بلوچ</span></p>
         </div>
       </section>
 
+      {/* Doctors */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <h2 className="text-2xl font-black text-slate-900 md:text-3xl">
+            پزشکان برجسته
+          </h2>
+          <Link to="/doctors" className="text-sm font-bold text-blue-700 hover:underline">
+            مشاهده همه پزشکان ←
+          </Link>
+        </div>
+
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {TOP_DOCTORS.map((doc) => (
+            <div
+              key={doc.id}
+              onClick={() => setSelectedDoctorId(doc.id)}
+              className={`cursor-pointer rounded-2xl border p-4 transition ${
+                selectedDoctorId === doc.id
+                  ? "border-blue-500 bg-blue-50/40"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              <div className="relative h-40 overflow-hidden rounded-xl bg-slate-100">
+                <SafeImage src={doc.image} alt={doc.name} className="h-full w-full object-cover" />
+                <div className="absolute left-2 top-2 rounded-lg bg-white px-2 py-1 text-xs font-bold text-amber-600 shadow-sm">
+                  ★ {doc.rating}
+                </div>
+              </div>
+
+              <h3 className="mt-3 text-base font-black text-slate-900">{doc.name}</h3>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{doc.specialty}</p>
+              <p className="mt-2 text-xs font-bold text-blue-700">
+                نزدیک‌ترین زمان: {doc.nextAvailable}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Quick booking */}
+      {selectedDoctor && (
+        <section className="mx-auto max-w-3xl px-4 py-16">
+          <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm md:p-10">
+            <div className="text-center">
+              <h2 className="text-xl font-black text-slate-900">
+                رزرو سریع نوبت برای {selectedDoctor.name}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                تاریخ موردنظر را از تقویم زیر انتخاب کنید.
+              </p>
+            </div>
+
+            <div className="mt-8">
+              <BookingCalendar
+                doctorId={selectedDoctor.id}
+                doctorName={selectedDoctor.name}
+                specialty={selectedDoctor.specialty}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Articles */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <h2 className="text-2xl font-black text-slate-900 md:text-3xl">
+            مجله سلامت داک‌تایم
+          </h2>
+          <Link to="/articles" className="text-sm font-bold text-blue-700 hover:underline">
+            مشاهده همه مقالات ←
+          </Link>
+        </div>
+
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {ARTICLES.map((article) => (
+            <article
+              key={article.id}
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:shadow-md"
+            >
+              <div className="h-40 overflow-hidden bg-slate-100">
+                <SafeImage src={article.image} alt={article.title} className="h-full w-full object-cover" />
+              </div>
+
+              <div className="p-5">
+                <span className="text-xs font-bold text-blue-700">{article.category}</span>
+                <h3 className="mt-2 text-base font-black leading-6 text-slate-900">
+                  {article.title}
+                </h3>
+                <p className="mt-2 text-xs font-medium leading-6 text-slate-500">
+                  {article.excerpt}
+                </p>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-semibold text-slate-400">
+                  <span>{article.date}</span>
+                  <span className="text-blue-700">مطالعه مقاله ←</span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Why DocTime */}
+      <section className="bg-blue-600">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <div className="text-center text-white">
+            <h2 className="text-2xl font-black md:text-3xl">چرا داک‌تایم؟</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm font-medium text-blue-100">
+              فرایند رزرو حضوری و تلفنی نوبت را با سیستمی ساده و مطمئن جایگزین کرده‌ایم.
+            </p>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {WHY_DOCTIME_ITEMS.map((item) => (
+              <div key={item.id} className="rounded-2xl bg-blue-500/40 p-5">
+                <span className="text-2xl">{item.icon}</span>
+                <h3 className="mt-3 text-base font-black text-white">{item.title}</h3>
+                <p className="mt-2 text-xs font-medium leading-6 text-blue-100">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

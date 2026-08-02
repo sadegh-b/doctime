@@ -1,3 +1,5 @@
+// Path: src/App.tsx
+
 import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Header from "./components/ui/Header";
@@ -100,9 +102,11 @@ export default function App() {
 
             <Route path="/anamnesis" element={<AnamnesisForm />} />
 
+            {/* Direct Patient Routes */}
             <Route path="/patient-profile" element={<PatientProfile />} />
             <Route path="/my-appointments" element={<MyAppointments />} />
 
+            {/* Direct Doctor Routes */}
             <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
             <Route
               path="/doctor-availability"
@@ -115,14 +119,25 @@ export default function App() {
             <Route path="/doctor-profile" element={<DoctorAdminProfile />} />
             <Route path="/doctor-schedule" element={<DoctorSchedule />} />
 
+            {/* Patient Redirects & Aliases (پشتیبانی از ساختارهای مختلف مسیر) */}
+            <Route
+              path="/patient/dashboard"
+              element={<Navigate to="/patient-profile" replace />}
+            />
             <Route
               path="/patient-dashboard"
+              element={<Navigate to="/patient-profile" replace />}
+            />
+            <Route
+              path="/patient/profile"
               element={<Navigate to="/patient-profile" replace />}
             />
             <Route
               path="/patient/appointments"
               element={<Navigate to="/my-appointments" replace />}
             />
+
+            {/* Doctor Redirects & Aliases */}
             <Route
               path="/doctor/dashboard"
               element={<Navigate to="/doctor-dashboard" replace />}
@@ -140,6 +155,7 @@ export default function App() {
               element={<Navigate to="/doctor-profile" replace />}
             />
 
+            {/* Wildcard Route for 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

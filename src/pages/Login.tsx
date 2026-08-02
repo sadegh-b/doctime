@@ -1,18 +1,18 @@
-// Path: src/pages/Login.tsx
-
-import { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, getError, type LoginPayload } from "../services/auth";
+import { login as apiLogin, getError, type LoginPayload } from "../services/auth";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { login: setAuthSession } = useAuth();
 
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const submittingRef = useRef<boolean>(false);
+
+  const [phone, setPhone] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
   const normalizeDigits = (value: string): string => {
@@ -26,22 +26,31 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (submittingRef.current) {
+      return;
+    }
+
+    submittingRef.current = true;
     setError("");
 
     const normalizedPhone = normalizeDigits(phone).replace(/\s+/g, "").trim();
 
     if (!normalizedPhone) {
       setError("وارد کردن شماره موبایل الزامی است.");
+      submittingRef.current = false;
       return;
     }
 
     if (!/^09\d{9}$/.test(normalizedPhone)) {
       setError("شماره موبایل نامعتبر است. فرمت صحیح: 09123456789");
+      submittingRef.current = false;
       return;
     }
 
     if (!password) {
       setError("وارد کردن رمز عبور الزامی است.");
+      submittingRef.current = false;
       return;
     }
 
@@ -53,14 +62,16 @@ export default function Login() {
         password,
       };
 
-      await login(payload);
-      await refreshUser();
+      const authData = await apiLogin(payload);
 
-      navigate("/");
+      setAuthSession(authData.user, authData.access_token);
+
+      navigate("/", { replace: true });
     } catch (err: unknown) {
       setError(getError(err));
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -124,7 +135,7 @@ export default function Login() {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-500 hover:text-blue-600 focus:outline-none"
               >
                 {showPassword ? "پنهان" : "نمایش"}
@@ -135,7 +146,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "در حال ورود..." : "ورود"}
           </button>

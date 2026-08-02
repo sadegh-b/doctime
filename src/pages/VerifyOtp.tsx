@@ -1,12 +1,10 @@
-// مسیر فایل: src/pages/VerifyOtp.tsx
-
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 // جداسازی توابع اجرایی (مقادیر ران‌تایم)
-import { registerUser, completeDoctorProfile, saveAuthData } from "../services/auth";
+import { registerUser, requestOtp, saveAuthData } from "../services/auth";
 
-// جداسازی تایپ‌ها (فقط برای زمان کامپایل - با استفاده از type)
+// جداسازی تایپ‌ها (فقط برای زمان کامپایل)
 import type { RegisterPayload, AuthUser } from "../services/auth";
 
 export default function VerifyOtp() {
@@ -24,7 +22,8 @@ export default function VerifyOtp() {
   const rawUserData = location.state?.userData;
   const storedPayload = sessionStorage.getItem("pending_register_payload");
 
-  const userData: RegisterPayload | null = rawUserData || (storedPayload ? JSON.parse(storedPayload) : null);
+  const userData: RegisterPayload | null =
+    rawUserData || (storedPayload ? JSON.parse(storedPayload) : null);
 
   useEffect(() => {
     if (!userData) {
@@ -34,7 +33,7 @@ export default function VerifyOtp() {
 
   useEffect(() => {
     if (timer > 0) {
-      const interval = setInterval(() => setTimer(prev => prev - 1), 1000);
+      const interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
       return () => clearInterval(interval);
     }
   }, [timer]);
@@ -52,7 +51,10 @@ export default function VerifyOtp() {
     }
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === "Backspace") {
       if (!otp[index] && index > 0 && inputRefs.current[index - 1]) {
         const newOtp = [...otp];
@@ -69,10 +71,25 @@ export default function VerifyOtp() {
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").replace(/[^\d]/g, "").substring(0, 6);
+    const pastedData = e.clipboardData
+      .getData("text")
+      .replace(/[^\d]/g, "")
+      .substring(0, 6);
     if (pastedData.length === 6) {
       setOtp(pastedData.split(""));
       inputRefs.current[5]?.focus();
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!userData) return;
+
+    try {
+      await requestOtp(userData.phone);
+      setTimer(120);
+      setError(null);
+    } catch {
+      setError("ارسال مجدد کد انجام نشد.");
     }
   };
 
@@ -82,73 +99,97 @@ export default function VerifyOtp() {
     setValidationErrors([]);
 
     const otpCode = otp.join("");
+
     if (otpCode.length !== 6) {
       setError("کد تایید باید ۶ رقمی باشد.");
       return;
     }
 
     if (!userData) {
-      setError("داده‌های ثبت نام یافت نشد. مجددا تلاش کنید.");
+      setError("اطلاعات ثبت نام پیدا نشد.");
       return;
     }
 
+    // اطلاعات تخصصی پزشک (در صورت وجود) را از حافظه موقت می‌خوانیم
+    // و مستقیماً داخل همان درخواست ثبت‌نام قرار می‌دهیم
+    const storedDoctorDetails = sessionStorage.getItem(
+      "pending_doctor_details"
+    );
+
+    const doctorDetails = storedDoctorDetails
+      ? JSON.parse(storedDoctorDetails)
+      : {};
+
     const cleanPayload: RegisterPayload = {
-      name: userData.name,
+      name: userData.name.trim(),
+
       phone: userData.phone,
-      national_id: userData.national_id,
+
       password: userData.password,
+
+      national_id: userData.national_id,
+
+      email: userData.email || null,
+
       role: userData.role,
-      email: userData.email || "",
+
+      ...(userData.role === "doctor" ? doctorDetails : {}),
     };
 
     setLoading(true);
 
     try {
-      console.log("SENDING REGISTER PAYLOAD:", cleanPayload);
+      console.log("REGISTER USER:", cleanPayload);
 
+      // یک درخواست واحد: ساخت کاربر + تکمیل پروفایل پزشک (در صورت نیاز) + دریافت توکن
       const registerRes = await registerUser(cleanPayload, otpCode);
 
-      if (registerRes.access_token) {
+      console.log("REGISTER SUCCESS:", registerRes);
+
+      const receivedToken =
+        registerRes.token?.access_token ?? registerRes.access_token;
+
+      if (receivedToken) {
         const loggedInUser: AuthUser = registerRes.user || {
           name: cleanPayload.name,
           phone: cleanPayload.phone,
           role: cleanPayload.role,
-          email: cleanPayload.email
+          email: cleanPayload.email,
         };
 
-        saveAuthData({
-          access_token: registerRes.access_token,
-          token_type: registerRes.token_type || "bearer",
-          user: loggedInUser
-        });
+        // saveAuthData خودش هر دو شکل پاسخ (flat یا nested) را تشخیص می‌دهد
+        saveAuthData({ ...registerRes, user: loggedInUser });
 
+        // اطلاع‌رسانی به کل برنامه برای به‌روزرسانی وضعیت ورود
         window.dispatchEvent(new Event("auth-change"));
+      } else {
+        console.warn("REGISTER: توکنی در پاسخ سرور یافت نشد.", registerRes);
       }
 
-      if (cleanPayload.role === "doctor") {
-        const storedDoctorDetails = sessionStorage.getItem("pending_doctor_details");
-        if (storedDoctorDetails) {
-          const doctorDetails = JSON.parse(storedDoctorDetails);
-          doctorDetails.national_id = cleanPayload.national_id;
-          await completeDoctorProfile(doctorDetails);
-        }
-      }
-
+      // پاکسازی حافظه موقت پس از موفقیت کامل
       sessionStorage.removeItem("pending_register_payload");
       sessionStorage.removeItem("pending_doctor_details");
 
-      navigate(cleanPayload.role === "doctor" ? "/doctor/dashboard" : "/patient/dashboard");
+      // هدایت به پنل مربوطه
+      navigate(
+        cleanPayload.role === "doctor"
+          ? "/doctor/dashboard"
+          : "/patient/dashboard"
+      );
     } catch (err: any) {
-      console.error("جزئیات خطا:", err);
-      if (err.response && err.response.data && err.response.data.detail) {
-        const detail = err.response.data.detail;
-        if (Array.isArray(detail)) {
-          setValidationErrors(detail);
-        } else {
-          setError(detail);
-        }
+      console.error("REGISTER ERROR:", err);
+
+      const detail = err?.response?.data?.detail;
+
+      if (Array.isArray(detail)) {
+        // خطاهای ساختاریافته Pydantic از سمت FastAPI
+        setValidationErrors(detail);
+      } else if (detail) {
+        // خطاهای متنی معمولی از سمت بک‌انده
+        setError(detail);
       } else {
-        setError("خطا در تایید کد پیامکی. لطفاً دوباره تلاش کنید.");
+        // خطاهای غیرمنتظره یا قطع شبکه
+        setError(err.message || "خطا در تکمیل ثبت نام");
       }
     } finally {
       setLoading(false);
@@ -162,9 +203,11 @@ export default function VerifyOtp() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
+    <div
+      dir="rtl"
+      className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10"
+    >
       <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 p-6 shadow-sm md:p-8">
-
         <div className="mb-6">
           <button
             type="button"
@@ -176,9 +219,13 @@ export default function VerifyOtp() {
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-xl font-extrabold text-slate-800">تایید شماره موبایل</h1>
+          <h1 className="text-xl font-extrabold text-slate-800">
+            تایید شماره موبایل
+          </h1>
           <p className="text-xs text-slate-500 mt-2">
-            کد ۶ رقمی ارسال شده به شماره <span className="font-bold text-slate-700">{userData?.phone}</span> را وارد کنید.
+            کد ۶ رقمی ارسال شده به شماره{" "}
+            <span className="font-bold text-slate-700">{userData?.phone}</span>{" "}
+            را وارد کنید.
           </p>
         </div>
 
@@ -190,8 +237,13 @@ export default function VerifyOtp() {
 
         {validationErrors.length > 0 && (
           <div className="mb-4 rounded-xl bg-rose-50 p-4 text-xs text-rose-600">
-            <p className="font-bold mb-1">خطای اعتبارسنجی فیلدها در سرور (422)</p>
-            <pre className="text-[10px] overflow-auto max-h-40 p-2 bg-rose-100 rounded-lg text-left" dir="ltr">
+            <p className="font-bold mb-1">
+              خطای اعتبارسنجی فیلدها در سرور (422)
+            </p>
+            <pre
+              className="text-[10px] overflow-auto max-h-40 p-2 bg-rose-100 rounded-lg text-left"
+              dir="ltr"
+            >
               {JSON.stringify(validationErrors, null, 2)}
             </pre>
           </div>
@@ -202,12 +254,12 @@ export default function VerifyOtp() {
             {otp.map((digit, index) => (
               <input
                 key={index}
-                ref={el => (inputRefs.current[index] = el)}
+                ref={(el) => (inputRefs.current[index] = el)}
                 type="text"
                 maxLength={1}
                 value={digit}
-                onChange={e => handleOtpChange(index, e.target.value)}
-                onKeyDown={e => handleKeyDown(index, e)}
+                onChange={(e) => handleOtpChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={index === 0 ? handlePaste : undefined}
                 className="w-12 h-12 text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 focus:bg-white outline-none transition"
               />
@@ -219,6 +271,7 @@ export default function VerifyOtp() {
             <button
               type="button"
               disabled={timer > 0}
+              onClick={handleResendOtp}
               className="text-sky-500 hover:text-sky-600 disabled:text-slate-400 disabled:no-underline font-bold transition"
             >
               ارسال مجدد کد
@@ -233,7 +286,6 @@ export default function VerifyOtp() {
             {loading ? "در حال تایید..." : "تایید و تکمیل ثبت‌نام"}
           </button>
         </form>
-
       </div>
     </div>
   );
