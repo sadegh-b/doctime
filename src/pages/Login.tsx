@@ -64,7 +64,17 @@ export default function Login() {
 
       const authData = await apiLogin(payload);
 
-      setAuthSession(authData.user, authData.access_token);
+      // پاسخ بک‌اند ممکن است توکن را داخل "token" برگرداند یا مستقیم در ریشه پاسخ
+      const accessToken =
+        authData.token?.access_token ??
+        authData.access_token ??
+        "";
+
+      if (!accessToken) {
+        console.warn("Login: access_token در پاسخ سرور یافت نشد.", authData);
+      }
+
+      setAuthSession(authData.user, accessToken);
 
       navigate("/", { replace: true });
     } catch (err: unknown) {
