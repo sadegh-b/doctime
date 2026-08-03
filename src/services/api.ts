@@ -7,8 +7,9 @@ const api = axios.create({
   baseURL: "https://doctime-backend-1.onrender.com/api/v1",
   headers: {
     "Content-Type": "application/json",
+    Accept: "application/json",
   },
-  timeout: 15000, // تعیین تایم اوت ۱۵ ثانیه‌ای برای جلوگیری از انتظار بی‌پایان به خاطر کندی Render
+  timeout: 60000, // ۶۰ ثانیه - Render گاهی موقع cold-start ۱۵ ثانیه کم می‌آورد
 });
 
 // لیست دقیق نقاط پایانی عمومی
@@ -51,7 +52,7 @@ function isPublicEndpoint(url?: string): boolean {
 export function clearAuthStorage(): void {
   // پاکسازی تمامی کلیدهای مرتبط
   const keys = ["access_token", "role", "user"];
-  keys.forEach(key => localStorage.removeItem(key));
+  keys.forEach((key) => localStorage.removeItem(key));
 
   sessionStorage.removeItem("pending_register_payload");
   sessionStorage.removeItem("pending_doctor_details");

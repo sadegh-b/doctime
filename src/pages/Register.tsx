@@ -16,9 +16,7 @@ import {
   Clock,
 } from "lucide-react";
 import { requestOtp, toEnglishDigits } from "../services/auth";
-
-// آدرس بیس بک‌اند - اگر آدرس واقعی بک‌اند فرق دارد اینجا اصلاح کن
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { getSpecialties } from "../services/api";
 
 // روزهای هفته دقیقاً با نام فارسی، همانطور که بک‌اند انتظار دارد
 const WORK_DAYS = [
@@ -102,9 +100,7 @@ export default function Register() {
       setSpecialtiesLoading(true);
       setSpecialtiesError(null);
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/specialties`);
-        if (!res.ok) throw new Error("خطا در دریافت لیست تخصص‌ها");
-        const data = await res.json();
+        const data = await getSpecialties();
 
         // پشتیبانی از چند شکل احتمالی پاسخ سرور
         const list: Specialty[] = Array.isArray(data)
