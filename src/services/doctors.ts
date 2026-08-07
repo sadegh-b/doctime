@@ -1,5 +1,3 @@
-// Path: src/services/doctors.ts
-
 import api from "./api";
 
 export interface Doctor {
@@ -7,34 +5,38 @@ export interface Doctor {
   user_id: number;
   name: string;
   specialty_id: number;
+  specialty: string; // slug/value used by filters
   specialty_name: string;
   work_shift: string | null;
+  province: string | null;
   city: string | null;
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   bio: string | null;
   experience_years: number;
   consultation_fee: number;
+  waiting_time_estimate: number | null;
   phone: string | null;
   image: string | null;
   rating: number | null;
   next_available: string | null;
+  in_person_visit: boolean;
+  online_visit: boolean;
+  gender: "male" | "female" | null;
 }
 
 type UnknownRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): UnknownRecord | null => {
-  return typeof value === "object" && value !== null
-    ? (value as UnknownRecord)
-    : null;
+  return typeof value === "object" && value !== null ? (value as UnknownRecord) : null;
 };
 
 const readString = (...values: unknown[]): string => {
   for (const value of values) {
     if (typeof value === "string") {
       const trimmed = value.trim();
-      if (trimmed) {
-        return trimmed;
-      }
+      if (trimmed) return trimmed;
     }
   }
   return "";
@@ -48,17 +50,34 @@ const readNullableString = (...values: unknown[]): string | null => {
 const readNumber = (...values: unknown[]): number => {
   for (const value of values) {
     const num = Number(value);
-    if (Number.isFinite(num)) {
-      return num;
-    }
+    if (Number.isFinite(num)) return num;
   }
   return 0;
 };
 
-const buildNameFromUser = (user: UnknownRecord | null): string => {
-  if (!user) {
-    return "";
+const readNullableNumber = (...values: unknown[]): number | null => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const num = Number(value);
+    if (Number.isFinite(num)) return num;
   }
+  return null;
+};
+
+const readBoolean = (...values: unknown[]): boolean => {
+  for (const value of values) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+      if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
+    }
+  }
+  return false;
+};
+
+const buildNameFromUser = (user: UnknownRecord | null): string => {
+  if (!user) return "";
 
   const firstName = readString(
     user.first_name,
@@ -75,9 +94,7 @@ const buildNameFromUser = (user: UnknownRecord | null): string => {
   );
 
   const full = [firstName, lastName].filter(Boolean).join(" ").trim();
-  if (full) {
-    return full;
-  }
+  if (full) return full;
 
   return readString(
     user.name,
@@ -89,6 +106,38 @@ const buildNameFromUser = (user: UnknownRecord | null): string => {
   );
 };
 
+const SPECIALTY_LABELS: Record<string, string> = {
+  general: "پزشک عمومی",
+  cardiology: "قلب و عروق",
+  orthopedics: "ارتوپدی",
+  dermatology: "پوست و مو",
+  pediatrics: "اطفال",
+  neurology: "مغز و اعصاب",
+  gynecology: "زنان و زایمان",
+  urology: "اورولوژی",
+  ent: "گوش، حلق و بینی",
+  ophthalmology: "چشم پزشکی",
+  psychiatry: "روان‌پزشکی",
+  dentistry: "دندان‌پزشکی",
+  internal_medicine: "داخلی",
+  surgery: "جراحی",
+  radiology: "رادیولوژی",
+  gastroenterology: "گوارش و کبد",
+  endocrinology: "غدد",
+  nephrology: "کلیه",
+  oncology: "انکولوژی",
+  pulmonology: "ریه",
+  infectious_disease: "عفونی",
+  family_medicine: "پزشک خانواده",
+};
+
+export const specialtyValueToLabel = (value: unknown): string => {
+  const raw = readString(value);
+  if (!raw) return "";
+  const normalized = raw.trim().toLowerCase();
+  return SPECIALTY_LABELS[normalized] || raw;
+};
+
 function normalizeDoctor(item: unknown): Doctor {
   const source = asRecord(item);
 
@@ -98,7 +147,7 @@ function normalizeDoctor(item: unknown): Doctor {
   }
 
   const user = asRecord(source.user);
-  const specialty = asRecord(source.specialty);
+  const specialtyRelation = asRecord(source.specialty_relation) || asRecord(source.specialty);
 
   const id = readNumber(source.id, source.doctor_id, source.doctorId);
   const userId = readNumber(
@@ -112,9 +161,7 @@ function normalizeDoctor(item: unknown): Doctor {
   const specialtyId = readNumber(
     source.specialty_id,
     source.specialtyId,
-    specialty?.id,
-    specialty?.specialty_id,
-    specialty?.specialtyId
+    specialtyRelation?.id
   );
 
   const name = readString(
@@ -128,32 +175,36 @@ function normalizeDoctor(item: unknown): Doctor {
     buildNameFromUser(user)
   );
 
-  // اگر تخصص وجود نداشت، مقدار پیش‌فرض پزشک عمومی را در نظر می‌گیریم تا فرانت کرش نکند
-  const specialtyName = readString(
+  const specialtySlug = readString(
+    source.specialty_slug,
+    source.specialtySlug,
+    specialtyRelation?.slug,
+    typeof source.specialty === "string" ? source.specialty : ""
+  );
+
+  const specialtyNameFromPayload = readString(
     source.specialty_name,
     source.specialtyName,
-    specialty?.name,
-    specialty?.title,
-    specialty?.specialty_name,
-    specialty?.specialtyName
-  ) || "پزشک عمومی";
+    specialtyRelation?.name,
+    specialtyRelation?.title
+  );
 
-  const specialtyIdFinal = specialtyId || 1; // مقدار پیش‌فرض شناسه تخصص
+  const specialtyName =
+    specialtyNameFromPayload || specialtyValueToLabel(specialtySlug) || "پزشک عمومی";
 
-  if (
-    !Number.isInteger(id) ||
-    id <= 0 ||
-    !name
-  ) {
+  const specialtyFinal = specialtySlug || "general";
+
+  if (!Number.isInteger(id) || id <= 0 || !name) {
     console.error("DOCTOR DETAILS RAW PAYLOAD:", item);
     console.error("DATA INTEGRITY ERROR: incomplete doctor payload", {
       id,
       userId,
       name,
-      specialtyId: specialtyIdFinal,
+      specialtyId,
+      specialtyFinal,
       specialtyName,
       user,
-      specialty,
+      specialtyRelation,
       payload: item,
     });
 
@@ -181,15 +232,19 @@ function normalizeDoctor(item: unknown): Doctor {
     id,
     user_id: userId,
     name,
-    specialty_id: specialtyIdFinal,
+    specialty_id: specialtyId || 1,
+    specialty: specialtyFinal,
     specialty_name: specialtyName,
     work_shift: readNullableString(
       source.work_shift,
       source.workShift,
       source.shift
     ),
+    province: readNullableString(source.province),
     city: readNullableString(source.city),
     address: readNullableString(source.address, source.location),
+    latitude: readNullableNumber(source.latitude, source.lat),
+    longitude: readNullableNumber(source.longitude, source.lng, source.lon),
     bio: readNullableString(
       source.bio,
       source.about,
@@ -198,6 +253,10 @@ function normalizeDoctor(item: unknown): Doctor {
     ),
     experience_years: experienceYears,
     consultation_fee: consultationFee,
+    waiting_time_estimate: readNullableNumber(
+      source.waiting_time_estimate,
+      source.waitingTimeEstimate
+    ),
     phone: readNullableString(
       source.phone,
       source.phone_number,
@@ -219,6 +278,19 @@ function normalizeDoctor(item: unknown): Doctor {
       source.next_available,
       source.nextAvailable
     ),
+    in_person_visit: readBoolean(
+      source.in_person_visit,
+      source.inPersonVisit,
+      source.in_person,
+      source.inPerson
+    ),
+    online_visit: readBoolean(
+      source.online_visit,
+      source.onlineVisit,
+      source.telemedicine,
+      source.tele_medicine
+    ),
+    gender: readNullableString(source.gender) as "male" | "female" | null,
   };
 }
 
@@ -260,12 +332,7 @@ function normalizeSingleDoctorResponse(payload: unknown): Doctor {
     return normalizeDoctor(payload);
   }
 
-  const nestedCandidates = [
-    source.data,
-    source.doctor,
-    source.result,
-    source.item,
-  ];
+  const nestedCandidates = [source.data, source.doctor, source.result, source.item];
 
   for (const candidate of nestedCandidates) {
     if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {

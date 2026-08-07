@@ -1,23 +1,18 @@
-// Path: frontend/src/components/DoctorCard.tsx
-
 import { Link } from "react-router-dom";
 import type { Doctor } from "../services/doctors";
+import { specialtyValueToLabel } from "../services/doctors";
 
-// تعریف یک آواتار پیش‌فرض محلی برای جلوگیری از خطاهای شبکه
 const DEFAULT_AVATAR = "/assets/default-doctor.png";
 
 interface DoctorCardProps {
   doctor: Doctor;
 }
 
-// متد کمکی برای تبدیل اعداد به فارسی در صورت نیاز
 const toPersianDigits = (value: string | number) =>
   String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 
 export default function DoctorCard({ doctor }: DoctorCardProps) {
-  // متد حرفه‌ای برای مدیریت تصویر
   const getImageUrl = (url: string | undefined) => {
-    // اگر URL خالی است یا شامل آدرس خارجی مشکوک است، آواتار پیش‌فرض را برگردان
     if (!url || url.includes("unsplash.com")) {
       return DEFAULT_AVATAR;
     }
@@ -26,24 +21,27 @@ export default function DoctorCard({ doctor }: DoctorCardProps) {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
-    // اگر باز هم لود نشد، یک آیکون SVG ساده جایگزین کن
     target.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
   };
 
-  // رفع مشکل عدم نمایش تخصص: تلاش برای خواندن specialty_name در صورت خالی بودن specialty
-  const displaySpecialty = doctor.specialty || doctor.specialty_name || "پزشک عمومی";
+  const specialtyName = doctor.specialty_name?.trim();
+  const specialtyFromSlug = specialtyValueToLabel(doctor.specialty).trim();
+
+  const displaySpecialty =
+    (specialtyName && specialtyName !== "پزشک عمومی" && specialtyName !== "نامشخص"
+      ? specialtyName
+      : specialtyFromSlug) || specialtyName || "نامشخص";
 
   return (
     <article
       className="relative rounded-2xl bg-white border border-slate-100 p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
       dir="rtl"
     >
-      {/* نوار رنگی تزیینی در بالای کارت پزشک جهت یکپارچگی با تقویم */}
       <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-l from-blue-500 to-sky-400 rounded-t-2xl" />
 
       <div className="flex items-start gap-4 mt-2">
         <img
-          src={getImageUrl(doctor.image)}
+          src={getImageUrl(doctor.image || undefined)}
           alt={doctor.name}
           onError={handleImageError}
           className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 bg-slate-50"
@@ -53,7 +51,7 @@ export default function DoctorCard({ doctor }: DoctorCardProps) {
           <h3 className="font-black text-lg text-slate-800 truncate">
             {doctor.name}
           </h3>
-          <p className="text-blue-600 text-sm font-bold mt-0.5">
+          <p className="text-blue-600 text-sm font-bold mt-0.5 truncate">
             {displaySpecialty}
           </p>
           <div className="flex items-center gap-1 text-slate-500 text-xs mt-2">
