@@ -1,5 +1,3 @@
-// Path: src/pages/Doctors.tsx
-
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -10,11 +8,7 @@ import {
 } from "lucide-react";
 import DoctorCard, { DoctorCardSkeleton } from "../components/DoctorCard";
 import { getDoctors, type Doctor } from "../services/doctors";
-
-// ایمپورت کردن دیتای استان‌ها و شهرهای ایران
 import { PROVINCES_CITIES } from "../data/provinces";
-
-// ایمپورت کردن لیست تخصص‌ها و تابع ترجمه
 import { specialties, specialtyValueToLabel } from "../data/specialties";
 
 export default function Doctors() {
@@ -28,13 +22,20 @@ export default function Doctors() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const {
-    data: doctorsList = [],
+    data,
     isLoading,
     error,
-  } = useQuery<Doctor[]>({
+  } = useQuery<Doctor[] | { results?: Doctor[] }>({
     queryKey: ["doctors-list"],
-    queryFn: getDoctors,
+    queryFn: () => getDoctors(),
   });
+
+  const doctorsList = useMemo<Doctor[]>(() => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.results)) return data.results;
+    return [];
+  }, [data]);
 
   const availableCities = useMemo(() => {
     if (!selectedProvince) return [];
@@ -61,11 +62,22 @@ export default function Doctors() {
   const filteredDoctors = doctorsList.filter((doc) => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      const nameMatch = doc.name?.toLowerCase().includes(term);
+
+      const nameMatch =
+        doc.name?.toLowerCase().includes(term) ||
+        doc.user?.first_name?.toLowerCase().includes(term) ||
+        doc.user?.last_name?.toLowerCase().includes(term);
+
       const bioMatch = doc.bio?.toLowerCase().includes(term);
 
-      const specialtyFa = specialtyValueToLabel(doc.specialty || "").toLowerCase();
-      const specialtyEn = (doc.specialty || "").toLowerCase();
+      const rawSpecialty =
+        typeof doc.specialty === "string"
+          ? doc.specialty
+          : doc.specialty?.slug || doc.specialty_slug || doc.specialty_value || "";
+
+      const specialtyFa = specialtyValueToLabel(rawSpecialty).toLowerCase();
+      const specialtyEn = rawSpecialty.toLowerCase();
+
       const specialtyMatch =
         specialtyFa.includes(term) || specialtyEn.includes(term);
 
@@ -89,7 +101,14 @@ export default function Doctors() {
 
     if (selectedCity && doc.city !== selectedCity) return false;
 
-    if (selectedSpecialty && doc.specialty !== selectedSpecialty) return false;
+    if (selectedSpecialty) {
+      const docSpec =
+        typeof doc.specialty === "string"
+          ? doc.specialty
+          : doc.specialty?.slug || doc.specialty_slug || doc.specialty_value || "";
+
+      if (docSpec !== selectedSpecialty) return false;
+    }
 
     return true;
   });
@@ -99,7 +118,7 @@ export default function Doctors() {
       return (b.rating || 0) - (a.rating || 0);
     }
     if (sortBy === "alphabet") {
-      return (a.name || "").localeCompare(b.name || "fa");
+      return (a.name || "").localeCompare(b.name || "", "fa");
     }
     return 0;
   });

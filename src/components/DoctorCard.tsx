@@ -1,3 +1,5 @@
+// مسیر فایل جهت قرارگیری در پروژه: src/components/DoctorCard.tsx
+
 import { Link } from "react-router-dom";
 import type { Doctor } from "../services/doctors";
 import { specialtyValueToLabel } from "../services/doctors";
@@ -25,6 +27,8 @@ export default function DoctorCard({ doctor }: DoctorCardProps) {
   };
 
   const specialtyName = doctor.specialty_name?.trim();
+
+  // فراخوانی ایمن متد کمکی برای استخراج لیبل تخصص
   const specialtyFromSlug = specialtyValueToLabel(doctor.specialty).trim();
 
   const displaySpecialty =

@@ -1,14 +1,9 @@
-// src/services/api.ts
+// مسیر فایل: src/services/api.ts
 
 import axios, { type InternalAxiosRequestConfig, AxiosError } from "axios";
 
 /**
- * Base URL from environment:
- * - .env.local   -> local backend
- * - .env.production -> production backend
- * Fallbacks:
- * - local dev: http://127.0.0.1:8000/api/v1
- * - production: https://doctime-backend-1.onrender.com/api/v1
+ * Base URL configuration with strict fallbacks
  */
 const DEFAULT_BASE_URL = import.meta.env.DEV
   ? "http://127.0.0.1:8000/api/v1"
@@ -20,55 +15,46 @@ const api = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 60000,
+  timeout: 30000, // ۳۰ ثانیه زمان انتظار برای جلوگیری از معطلی بی‌دلیل
 });
 
-const PUBLIC_ENDPOINTS = new Set([
+/**
+ * مسیرهایی که نیاز به توکن ندارند
+ */
+const PUBLIC_PATHS = [
   "/auth/login",
   "/auth/register",
   "/auth/otp/send",
   "/specialties",
-]);
-
-function normalizeUrlPath(url?: string): string {
-  if (!url) return "";
-
-  let path = url.split("?")[0].trim();
-
-  if (path.length > 1 && path.endsWith("/")) {
-    path = path.slice(0, -1);
-  }
-
-  return path;
-}
+  "/doctors",
+];
 
 function isPublicEndpoint(url?: string): boolean {
-  const normalized = normalizeUrlPath(url);
-  return PUBLIC_ENDPOINTS.has(normalized);
+  if (!url) return false;
+  // جداسازی پارامترهای کوئری
+  const pathWithoutQuery = url.split("?")[0];
+  // نرمال‌سازی اسلش‌ها: حذف اسلش‌های ابتدا و انتها برای مقایسه دقیق
+  const cleanPath = pathWithoutQuery.replace(/^\/+|\/+$/g, "");
+
+  return PUBLIC_PATHS.some((p) => {
+    const cleanPublic = p.replace(/^\/+|\/+$/g, "");
+    return cleanPath === cleanPublic || cleanPath.endsWith(cleanPublic);
+  });
 }
 
-export function clearAuthStorage(): void {
-  const keys = ["access_token", "role", "user"];
-  keys.forEach((key) => localStorage.removeItem(key));
-
-  sessionStorage.removeItem("pending_register_payload");
-  sessionStorage.removeItem("pending_doctor_details");
-
-  window.dispatchEvent(new Event("auth-change"));
-}
-
+/**
+ * Request Interceptor: تزریق توکن به هدرها
+ */
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem("access_token");
-    const requestPath = normalizeUrlPath(config.url);
 
-    if (isPublicEndpoint(requestPath)) {
-      delete config.headers.Authorization;
-      return config;
-    }
-
-    if (token && token.trim()) {
+    // فقط اگر مسیر عمومی نبود و توکن موجود بود، هدر Authorization را اضافه کن
+    if (token && token.trim() && !isPublicEndpoint(config.url)) {
       config.headers.Authorization = `Bearer ${token.trim()}`;
+    } else {
+      // برای اطمینان در مسیرهای عمومی هدر را حذف کن تا تداخل ایجاد نشود
+      delete config.headers.Authorization;
     }
 
     return config;
@@ -76,23 +62,29 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+/**
+ * Response Interceptor: مدیریت خطاهای احراز هویت و ریدایرکت
+ */
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     const status = error.response?.status;
-    const requestPath = normalizeUrlPath(error.config?.url);
+    const currentPath = window.location.pathname;
 
-    if (status === 401 && !isPublicEndpoint(requestPath)) {
-      console.warn("Session expired or unauthorized. Redirecting to login...");
-      clearAuthStorage();
+    // اگر توکن منقضی شده بود (401) و در صفحه لاگین نبودیم
+    if (status === 401 && currentPath !== "/login") {
+      console.warn("Session expired or invalid. Redirecting to login...");
 
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
-      }
+      // پاکسازی کامل برای رفع خطای Header Too Large
+      localStorage.clear();
+      sessionStorage.clear();
+
+      window.dispatchEvent(new Event("auth-change"));
+      window.location.href = "/login";
     }
 
     if (error.code === "ECONNABORTED") {
-      console.error("درخواست به دلیل کندی بیش از حد سرور متوقف شد.");
+      console.error("درخواست به دلیل کندی بیش از حد سرور متوقف شد (Timeout).");
     }
 
     return Promise.reject(error);

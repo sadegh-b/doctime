@@ -1,133 +1,88 @@
-// Path: frontend/src/pages/SearchResults.tsx
+// مسیر فایل: src/pages/SearchResults.tsx
 
-import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import api from "../services/api";
-import DoctorCard, { DoctorCardSkeleton } from "../components/DoctorCard";
-import type { Doctor } from "../services/doctors";
-import { Search } from "lucide-react";
+import DoctorCard from "../components/DoctorCard";
+import {
+  fetchDoctors,
+  type Doctor,
+  type DoctorsResponse,
+} from "../services/doctors";
+import { Loader2, SearchX } from "lucide-react";
+
+type DoctorsQueryResult = Doctor[] | DoctorsResponse;
 
 export default function SearchResults() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get("q")?.trim() || "";
+  const [searchParams] = useSearchParams();
 
-  const [localQuery, setLocalQuery] = useState(query);
-
-  useEffect(() => {
-    setLocalQuery(query);
-  }, [query]);
+  const query = searchParams.get("query") || "";
+  const specialty = searchParams.get("specialty") || "";
+  const city = searchParams.get("city") || "";
 
   const {
-    data: doctors,
+    data,
     isLoading,
     error,
-    isFetched,
-  } = useQuery({
-    queryKey: ["search-doctors", query],
-    queryFn: async () => {
-      if (!query) return [];
-      const response = await api.get<Doctor[]>(
-        `/doctors/search?query=${encodeURIComponent(query)}`
-      );
-      return response.data;
-    },
-    enabled: query.length > 0,
+  } = useQuery<DoctorsQueryResult, Error>({
+    queryKey: ["search-doctors", query, specialty, city],
+    queryFn: () =>
+      fetchDoctors({
+        search: query,
+        specialty_slug: specialty,
+        city,
+      }),
   });
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = localQuery.trim();
+  const doctors: Doctor[] = Array.isArray(data)
+    ? data
+    : data && typeof data === "object" && "results" in data && Array.isArray(data.results)
+      ? data.results
+      : [];
 
-    if (trimmed) {
-      setSearchParams({ q: trimmed });
-    } else {
-      setSearchParams({});
-    }
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-slate-600 font-bold">در حال جستجوی بهترین پزشکان...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-10 bg-red-50 rounded-3xl border border-red-100 m-4">
+        <p className="text-red-600 font-bold mb-3">
+          خطا در بارگذاری لیست پزشکان
+        </p>
+
+        <pre className="text-xs text-red-700 bg-white border border-red-200 rounded-xl p-4 overflow-auto whitespace-pre-wrap text-right">
+          {error.message}
+        </pre>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl" dir="rtl">
-      <div className="mb-10 max-w-2xl mx-auto text-center">
-        <h1 className="text-3xl font-black text-slate-900 mb-3">
-          جستجوی پزشک و نوبت‌دهی
-        </h1>
-        <p className="text-slate-500 text-sm mb-6">
-          نام پزشک، تخصص یا بیماری مورد نظر را وارد کرده و پزشک مناسب خود را پیدا کنید.
+    <div className="container mx-auto px-4 py-8" dir="rtl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-black text-slate-900">نتایج جستجو</h1>
+        <p className="text-slate-500 mt-2">
+          {doctors.length} مورد برای "{query || specialty || city}" پیدا شد.
         </p>
-
-        <form
-          onSubmit={handleSubmit}
-          className="relative flex shadow-lg rounded-2xl overflow-hidden border border-slate-200"
-        >
-          <input
-            type="text"
-            placeholder="مثال: دکتر احمدی، قلب و عروق، دندان‌پزشکی..."
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            className="w-full px-6 py-4 text-slate-800 placeholder-slate-400 bg-white focus:outline-none text-base"
-          />
-          <button
-            type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 flex items-center gap-2 font-bold transition-colors shrink-0"
-          >
-            <Search size={20} />
-            <span>جستجو</span>
-          </button>
-        </form>
       </div>
 
-      {query ? (
-        <div className="mb-8 border-b border-slate-200 pb-4">
-          <h2 className="text-xl font-bold text-slate-800">
-            نتایج جستجو برای: <span className="text-blue-600">«{query}»</span>
-          </h2>
-          <p className="text-slate-500 text-sm mt-1">
-            {isLoading
-              ? "در حال دریافت اطلاعات..."
-              : isFetched
-                ? `${doctors?.length || 0} پزشک پیدا شد.`
-                : ""}
-          </p>
+      {doctors.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {doctors.map((doc) => (
+            <DoctorCard key={doc.id} doctor={doc} />
+          ))}
         </div>
       ) : (
-        <div className="text-center py-16 bg-blue-50/50 rounded-3xl border-2 border-dashed border-blue-100 mb-8">
-          <span className="text-4xl mb-4 block">🔍</span>
-          <h2 className="text-lg font-bold text-blue-950">منتظر جستجوی شما هستیم</h2>
-          <p className="text-blue-600/80 text-sm mt-2">
-            عبارت مورد نظر خود را در کادر بالا وارد کرده و دکمه جستجو را بزنید.
-          </p>
-        </div>
-      )}
-
-      {isLoading && query && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, index) => (
-            <DoctorCardSkeleton key={index} />
-          ))}
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-center font-bold max-w-xl mx-auto">
-          خطایی در برقراری ارتباط با سرور رخ داد. لطفاً اتصال بک‌اند را بررسی کنید.
-        </div>
-      )}
-
-      {isFetched && doctors && doctors.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {doctors.map((doctor) => (
-            <DoctorCard key={doctor.id} doctor={doctor} />
-          ))}
-        </div>
-      )}
-
-      {isFetched && query && doctors && doctors.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-          <span className="text-4xl mb-4">🕵️‍♂️</span>
-          <h3 className="text-lg font-bold text-slate-700">نتیجه‌ای یافت نشد</h3>
-          <p className="text-slate-400 text-sm mt-1">
-            متأسفانه پزشکی با عبارت «{query}» پیدا نکردیم. عبارت دیگری را امتحان کنید.
+        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-16 text-center">
+          <SearchX className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-slate-700">نتیجه‌ای یافت نشد!</h3>
+          <p className="text-slate-500 mt-2">
+            پزشکی با این مشخصات در سیستم ثبت نشده است.
           </p>
         </div>
       )}
