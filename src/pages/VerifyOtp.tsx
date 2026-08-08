@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-// جداسازی توابع اجرایی (مقادیر ران‌تایم)
-import { registerUser, requestOtp, saveAuthData } from "../services/auth";
-
-// جداسازی تایپ‌ها (فقط برای زمان کامپایل)
+import { register, requestOtp } from "../services/auth";
 import type { RegisterPayload, AuthUser } from "../services/auth";
 
 export default function VerifyOtp() {
@@ -110,67 +107,34 @@ export default function VerifyOtp() {
       return;
     }
 
-    // اطلاعات تخصصی پزشک (در صورت وجود) را از حافظه موقت می‌خوانیم
-    // و مستقیماً داخل همان درخواست ثبت‌نام قرار می‌دهیم
-    const storedDoctorDetails = sessionStorage.getItem(
-      "pending_doctor_details"
-    );
-
-    const doctorDetails = storedDoctorDetails
-      ? JSON.parse(storedDoctorDetails)
-      : {};
+    const storedDoctorDetails = sessionStorage.getItem("pending_doctor_details");
+    const doctorDetails = storedDoctorDetails ? JSON.parse(storedDoctorDetails) : {};
 
     const cleanPayload: RegisterPayload = {
       name: userData.name.trim(),
-
       phone: userData.phone,
-
       password: userData.password,
-
       national_id: userData.national_id,
-
       email: userData.email || null,
-
       role: userData.role,
-
       ...(userData.role === "doctor" ? doctorDetails : {}),
     };
 
     setLoading(true);
 
     try {
-      console.log("REGISTER USER:", cleanPayload);
-
-      // یک درخواست واحد: ساخت کاربر + تکمیل پروفایل پزشک (در صورت نیاز) + دریافت توکن
-      const registerRes = await registerUser(cleanPayload, otpCode);
-
-      console.log("REGISTER SUCCESS:", registerRes);
+      const registerRes = await register(cleanPayload, otpCode);
 
       const receivedToken =
         registerRes.token?.access_token ?? registerRes.access_token;
 
-      if (receivedToken) {
-        const loggedInUser: AuthUser = registerRes.user || {
-          name: cleanPayload.name,
-          phone: cleanPayload.phone,
-          role: cleanPayload.role,
-          email: cleanPayload.email,
-        };
-
-        // saveAuthData خودش هر دو شکل پاسخ (flat یا nested) را تشخیص می‌دهد
-        saveAuthData({ ...registerRes, user: loggedInUser });
-
-        // اطلاع‌رسانی به کل برنامه برای به‌روزرسانی وضعیت ورود
-        window.dispatchEvent(new Event("auth-change"));
-      } else {
+      if (!receivedToken) {
         console.warn("REGISTER: توکنی در پاسخ سرور یافت نشد.", registerRes);
       }
 
-      // پاکسازی حافظه موقت پس از موفقیت کامل
       sessionStorage.removeItem("pending_register_payload");
       sessionStorage.removeItem("pending_doctor_details");
 
-      // هدایت به پنل مربوطه
       navigate(
         cleanPayload.role === "doctor"
           ? "/doctor/dashboard"
@@ -182,13 +146,10 @@ export default function VerifyOtp() {
       const detail = err?.response?.data?.detail;
 
       if (Array.isArray(detail)) {
-        // خطاهای ساختاریافته Pydantic از سمت FastAPI
         setValidationErrors(detail);
       } else if (detail) {
-        // خطاهای متنی معمولی از سمت بک‌انده
         setError(detail);
       } else {
-        // خطاهای غیرمنتظره یا قطع شبکه
         setError(err.message || "خطا در تکمیل ثبت نام");
       }
     } finally {

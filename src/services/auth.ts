@@ -1,3 +1,5 @@
+// مسیر فایل: src/services/auth.ts
+
 import axios from "axios";
 import api from "./api";
 
@@ -129,7 +131,6 @@ export function getUser(): AuthUser | null {
 }
 
 export function saveAuthData(data: AuthResponse): void {
-  // استخراج توکن از هر دو فرمت احتمالی سرور
   const token = data.access_token || data.token?.access_token;
 
   if (!token) {
@@ -158,7 +159,7 @@ export function isAuthenticated(): boolean {
 }
 
 /* =========================
-   API API Methods
+   API Methods
 ========================= */
 export async function sendOtp(phone: string): Promise<OTPResponse> {
   try {
@@ -170,6 +171,9 @@ export async function sendOtp(phone: string): Promise<OTPResponse> {
     throw new Error(extractErrorMessage(err, "خطا در ارسال کد تایید."));
   }
 }
+
+// ثبت نام مستعار برای هماهنگی با ایمپورت‌های کامپوننت Register
+export const requestOtp = sendOtp;
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   try {
@@ -186,7 +190,6 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 
 export async function register(payload: RegisterPayload, otpCode: string): Promise<AuthResponse> {
   try {
-    // پاکسازی داده‌ها قبل از ارسال (Data Sanitization)
     const normalized = {
       ...payload,
       phone: normalizePhone(payload.phone),
