@@ -76,7 +76,7 @@ export default function Header() {
               ))}
             </nav>
 
-            {/* User Actions */}
+            {/* User Actions (Desktop) */}
             <div className="hidden items-center gap-2.5 lg:flex">
               {!role ? (
                 <>
@@ -95,6 +95,9 @@ export default function Header() {
                 <>
                   {role === "patient" && (
                     <>
+                      <Link to="/wallet" className="rounded-full border border-slate-200 bg-slate-50 px-5 py-2.5 text-[15px] font-extrabold text-slate-800 hover:bg-slate-100">
+                        کیف پول من
+                      </Link>
                       <Link to="/patient-profile" className="rounded-full border border-blue-100 bg-blue-50 px-5 py-2.5 text-[15px] font-extrabold text-blue-700 hover:bg-blue-100">
                         پنل بیمار
                       </Link>
@@ -133,15 +136,37 @@ export default function Header() {
                     {item.label}
                   </Link>
                 ))}
-                {/* بخش موبایل هم دقیقاً مثل دسکتاپ از متغیر role استفاده می‌کند */}
+
                 {!role ? (
-                   <>
+                  <>
                     <Link to="/login" className="rounded-2xl px-4 py-3 text-[15px] font-extrabold text-slate-700 hover:bg-slate-100">ورود بیمار</Link>
                     <Link to="/doctor-login" className="rounded-2xl px-4 py-3 text-[15px] font-extrabold text-blue-700 hover:bg-blue-50">ورود پزشک</Link>
-                    <Link to="/register" className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-[15px] font-black text-white">ثبت‌نام</Link>
-                   </>
+                    <Link to="/register" className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-[15px] font-black text-white text-center">ثبت‌نام</Link>
+                  </>
                 ) : (
-                  <button onClick={handleLogout} className="w-full rounded-2xl px-4 py-3 text-right text-[15px] font-extrabold text-red-600 hover:bg-red-50">خروج</button>
+                  <>
+                    {role === "patient" && (
+                      <>
+                        <Link to="/wallet" className="rounded-2xl px-4 py-3 text-[15px] font-extrabold text-slate-700 hover:bg-slate-100">
+                          کیف پول من
+                        </Link>
+                        <Link to="/patient-profile" className="rounded-2xl px-4 py-3 text-[15px] font-extrabold text-slate-700 hover:bg-slate-100">
+                          پنل بیمار
+                        </Link>
+                        <Link to="/my-appointments" className="rounded-2xl px-4 py-3 text-[15px] font-extrabold text-slate-700 hover:bg-slate-100">
+                          نوبت‌های من
+                        </Link>
+                      </>
+                    )}
+                    {role === "doctor" && (
+                      <Link to="/doctor-dashboard" className="rounded-2xl px-4 py-3 text-[15px] font-extrabold text-slate-700 hover:bg-slate-100">
+                        پنل پزشک
+                      </Link>
+                    )}
+                    <button onClick={handleLogout} className="w-full rounded-2xl px-4 py-3 text-right text-[15px] font-extrabold text-red-600 hover:bg-red-50">
+                      خروج
+                    </button>
+                  </>
                 )}
               </div>
             </div>

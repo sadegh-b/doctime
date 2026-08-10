@@ -63,7 +63,7 @@ export default function DoctorProfilePage() {
     queryKey: ["doctor", doctorId],
     queryFn: () => getDoctorById(doctorId),
     enabled: isValidDoctorId,
-    retry: false, // غیرفعال کردن تلاش مجدد برای دیدن سریع خطا در کنسول
+    retry: false,
   });
 
   const {
@@ -292,7 +292,7 @@ export default function DoctorProfilePage() {
             <h2 className="text-2xl font-black text-slate-900">نظرات و تجربیات</h2>
           </div>
           <ReviewsList doctorId={doctorId} />
-          <div className="mt-10 pt-10 border-t border-slate-50">
+          <div className="mt-10 pt-10 border-t border-slate-55">
             <AddReviewForm doctorId={doctorId} />
           </div>
         </div>

@@ -1,18 +1,16 @@
-// مسیر فایل: src/pages/Register.tsx
-
-import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  User,
-  Phone,
-  Lock,
-  Mail,
-  CreditCard,
   Building2,
-  Clock,
+  CreditCard,
   DollarSign,
   FileText,
+  Lock,
+  Mail,
+  Phone,
+  User,
 } from "lucide-react";
+
 import { requestOtp, toEnglishDigits } from "../services/auth";
 import { getSpecialties } from "../services/api";
 
@@ -33,10 +31,17 @@ const WORK_SHIFTS = [
 ];
 
 const PROVINCES_AND_CITIES: Record<string, string[]> = {
-  "سیستان و بلوچستان": ["زاهدان", "چابهار", "ایرانشهر", "زابل", "سراوان", "خاش"],
-  "تهران": ["تهران", "شهریار", "اسلامشهر", "ری", "قدس", "ملارد"],
+  "سیستان و بلوچستان": [
+    "زاهدان",
+    "چابهار",
+    "ایرانشهر",
+    "زابل",
+    "سراوان",
+    "خاش",
+  ],
+  تهران: ["تهران", "شهریار", "اسلامشهر", "ری", "قدس", "ملارد"],
   "خراسان رضوی": ["مشهد", "نیشابور", "سبزوار", "تربت حیدریه", "قوچان"],
-  "اصفهان": ["اصفهان", "کاشان", "خمینی‌شهر", "نجف‌آباد", "شاهین‌شهر"],
+  اصفهان: ["اصفهان", "کاشان", "خمینی‌شهر", "نجف‌آباد", "شاهین‌شهر"],
 };
 
 interface Specialty {
@@ -46,6 +51,7 @@ interface Specialty {
 
 export default function Register() {
   const navigate = useNavigate();
+
   const [role, setRole] = useState<"patient" | "doctor">("patient");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,113 +80,221 @@ export default function Register() {
   });
 
   useEffect(() => {
-    if (role === "doctor" && specialties.length === 0) {
-      setSpecialtiesLoading(true);
-      getSpecialties()
-        .then((data) => {
-          setSpecialties(Array.isArray(data) ? data : []);
-          setSpecialtiesLoading(false);
-        })
-        .catch(() => setSpecialtiesLoading(false));
+    if (role !== "doctor" || specialties.length > 0) {
+      return;
     }
+
+    setSpecialtiesLoading(true);
+
+    getSpecialties()
+      .then((data) => {
+        setSpecialties(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setError("دریافت فهرست تخصص‌ها از سرور انجام نشد.");
+      })
+      .finally(() => {
+        setSpecialtiesLoading(false);
+      });
   }, [role, specialties.length]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+    const { name, value } = event.target;
 
-  const handleDayToggle = (dayId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      workDays: prev.workDays.includes(dayId)
-        ? prev.workDays.filter((d) => d !== dayId)
-        : [...prev.workDays, dayId],
+    setFormData((previousData) => ({
+      ...previousData,
+      [name]: value,
+      ...(name === "province" ? { city: "" } : {}),
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDayToggle = (dayId: string) => {
+    setFormData((previousData) => ({
+      ...previousData,
+      workDays: previousData.workDays.includes(dayId)
+        ? previousData.workDays.filter((day) => day !== dayId)
+        : [...previousData.workDays, dayId],
+    }));
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
 
-    const cleanPhone = toEnglishDigits(formData.phone).trim();
-    if (cleanPhone.length !== 11 || !cleanPhone.startsWith("09")) {
-      setError("لطفاً شماره موبایل ۱۱ رقمی معتبر وارد کنید (مثال: 09123456789).");
+    const cleanName = formData.name.trim();
+    const cleanPhone = toEnglishDigits(formData.phone).replace(/\s+/g, "");
+    const cleanNationalId = toEnglishDigits(formData.nationalId).replace(
+      /\s+/g,
+      ""
+    );
+    const cleanMedicalCouncilNumber = toEnglishDigits(
+      formData.medicalCouncilNumber
+    ).replace(/\s+/g, "");
+
+    if (!cleanName) {
+      setError("نام و نام خانوادگی الزامی است.");
+      return;
+    }
+
+    if (!/^09\d{9}$/.test(cleanPhone)) {
+      setError("لطفاً شماره موبایل ۱۱ رقمی معتبر وارد کنید؛ مثال: 09123456789");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("رمز عبور باید حداقل ۶ کاراکتر داشته باشد.");
       return;
     }
 
     if (role === "doctor") {
+      if (!/^\d{10}$/.test(cleanNationalId)) {
+        setError("کد ملی پزشک باید دقیقاً ۱۰ رقم باشد.");
+        return;
+      }
+
+      if (!cleanMedicalCouncilNumber) {
+        setError("شماره نظام پزشکی الزامی است.");
+        return;
+      }
+
       if (!formData.specialtyId) {
         setError("انتخاب تخصص پزشکی الزامی است.");
         return;
       }
+
+      if (!formData.province) {
+        setError("انتخاب استان الزامی است.");
+        return;
+      }
+
+      if (!formData.city) {
+        setError("انتخاب شهر الزامی است.");
+        return;
+      }
+
+      if (!formData.address.trim()) {
+        setError("آدرس دقیق مطب الزامی است.");
+        return;
+      }
+
+      if (!formData.visitFee || Number(formData.visitFee) <= 0) {
+        setError("مبلغ ویزیت باید بیشتر از صفر باشد.");
+        return;
+      }
+
       if (formData.workDays.length === 0) {
         setError("لطفاً حداقل یک روز کاری را انتخاب کنید.");
         return;
       }
     }
 
+    const formattedPayload = {
+      name: cleanName,
+      phone: cleanPhone,
+      password: formData.password,
+      role,
+      email: formData.email.trim() || null,
+      national_id: cleanNationalId || undefined,
+
+      ...(role === "doctor"
+        ? {
+            medical_council_number: cleanMedicalCouncilNumber,
+            specialty_id: Number(formData.specialtyId),
+            province: formData.province,
+            city: formData.city,
+            address: formData.address.trim(),
+            consultation_fee: Number(formData.visitFee),
+            work_shift: formData.workShift,
+            work_days: formData.workDays,
+            morning_start:
+              formData.workShift === "morning" ||
+              formData.workShift === "both"
+                ? formData.morningStart
+                : undefined,
+            morning_end:
+              formData.workShift === "morning" ||
+              formData.workShift === "both"
+                ? formData.morningEnd
+                : undefined,
+            afternoon_start:
+              formData.workShift === "afternoon" ||
+              formData.workShift === "both"
+                ? formData.afternoonStart
+                : undefined,
+            afternoon_end:
+              formData.workShift === "afternoon" ||
+              formData.workShift === "both"
+                ? formData.afternoonEnd
+                : undefined,
+            schedule_start_date: formData.scheduleStartDate,
+          }
+        : {}),
+    };
+
     setLoading(true);
 
     try {
       await requestOtp(cleanPhone);
 
-      // نگاشت داده‌های فرانت به ساختار مورد انتظار بک‌اند (snake_case)
-      const formattedPayload = {
-        name: formData.name.trim(),
-        phone: cleanPhone,
-        password: formData.password,
-        role,
-        email: formData.email.trim() || null,
-        national_id: formData.nationalId.trim() || undefined,
-        ...(role === "doctor" && {
-          medical_council_number: formData.medicalCouncilNumber.trim(),
-          specialty_id: formData.specialtyId ? Number(formData.specialtyId) : undefined,
-          province: formData.province,
-          city: formData.city,
-          address: formData.address.trim(),
-          consultation_fee: formData.visitFee ? Number(formData.visitFee) : 0,
-          work_shift: formData.workShift,
-          work_days: formData.workDays,
-          morning_start: formData.workShift === "morning" || formData.workShift === "both" ? formData.morningStart : undefined,
-          morning_end: formData.workShift === "morning" || formData.workShift === "both" ? formData.morningEnd : undefined,
-          afternoon_start: formData.workShift === "afternoon" || formData.workShift === "both" ? formData.afternoonStart : undefined,
-          afternoon_end: formData.workShift === "afternoon" || formData.workShift === "both" ? formData.afternoonEnd : undefined,
-          schedule_start_date: formData.scheduleStartDate,
-        }),
-      };
+      /*
+        منبع واحد اطلاعات ثبت‌نام تا مرحله تأیید OTP.
+        VerifyOtp.tsx نیز همین کلید را می‌خواند.
+      */
+      sessionStorage.setItem(
+        "pending_register_payload",
+        JSON.stringify(formattedPayload)
+      );
 
-      sessionStorage.setItem("pending_register_payload", JSON.stringify(formattedPayload));
-      navigate("/verify-otp", { state: { phone: cleanPhone } });
-    } catch (err: any) {
-      setError(err.message || "خطا در برقراری ارتباط با سرور.");
+      sessionStorage.removeItem("pending_doctor_details");
+
+      navigate("/verify-otp", {
+        state: {
+          phone: cleanPhone,
+        },
+      });
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "خطا در برقراری ارتباط با سرور."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center p-4 py-10">
-      <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-        <h1 className="text-2xl font-extrabold text-slate-800 text-center mb-8">ایجاد حساب داک‌تایم</h1>
+    <div
+      dir="rtl"
+      className="flex min-h-screen items-center justify-center bg-slate-50 p-4 py-10"
+    >
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="mb-8 text-center text-2xl font-extrabold text-slate-800">
+          ایجاد حساب داک‌تایم
+        </h1>
 
-        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl mb-6">
+        <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => setRole("patient")}
-            className={`py-3 rounded-xl font-bold transition ${
-              role === "patient" ? "bg-white text-sky-500 shadow-sm" : "text-slate-500"
+            className={`rounded-xl py-3 font-bold transition ${
+              role === "patient"
+                ? "bg-white text-sky-500 shadow-sm"
+                : "text-slate-500"
             }`}
           >
             بیمار هستم
           </button>
+
           <button
             type="button"
             onClick={() => setRole("doctor")}
-            className={`py-3 rounded-xl font-bold transition ${
-              role === "doctor" ? "bg-white text-sky-500 shadow-sm" : "text-slate-500"
+            className={`rounded-xl py-3 font-bold transition ${
+              role === "doctor"
+                ? "bg-white text-sky-500 shadow-sm"
+                : "text-slate-500"
             }`}
           >
             پزشک هستم
@@ -188,7 +302,7 @@ export default function Register() {
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-sm font-bold">
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-600">
             {error}
           </div>
         )}
@@ -196,39 +310,47 @@ export default function Register() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <User className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
             <input
               name="name"
               required
+              autoComplete="name"
               value={formData.name}
               onChange={handleChange}
               placeholder="نام و نام خانوادگی"
-              className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-sky-500"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 outline-none focus:border-sky-500"
             />
           </div>
 
           <div className="relative">
             <Phone className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
             <input
               name="phone"
               required
+              inputMode="tel"
+              autoComplete="tel"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="شماره موبایل (مثال: 09123456789)"
-              className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-left"
+              placeholder="شماره موبایل؛ مثال: 09123456789"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 text-left outline-none focus:border-sky-500"
               dir="ltr"
             />
           </div>
 
           <div className="relative">
             <Lock className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
             <input
               type="password"
               name="password"
               required
+              minLength={6}
+              autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="رمز عبور (حداقل ۶ کاراکتر)"
-              className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-left"
+              placeholder="رمز عبور؛ حداقل ۶ کاراکتر"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 text-left outline-none focus:border-sky-500"
               dir="ltr"
             />
           </div>
@@ -236,56 +358,75 @@ export default function Register() {
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
               <FileText className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
               <input
                 name="nationalId"
+                required={role === "doctor"}
+                inputMode="numeric"
+                autoComplete="off"
                 value={formData.nationalId}
                 onChange={handleChange}
-                placeholder="کد ملی (اختیاری)"
-                className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-left"
+                placeholder={
+                  role === "doctor"
+                    ? "کد ملی پزشک *"
+                    : "کد ملی (اختیاری)"
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 text-left outline-none focus:border-sky-500"
                 dir="ltr"
               />
             </div>
+
             <div className="relative">
               <Mail className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
               <input
                 type="email"
                 name="email"
+                autoComplete="email"
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="ایمیل (اختیاری)"
-                className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-left"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 text-left outline-none focus:border-sky-500"
                 dir="ltr"
               />
             </div>
           </div>
 
           {role === "doctor" && (
-            <div className="pt-4 space-y-4 border-t border-slate-100">
-              <p className="font-bold text-slate-700 text-sm">اطلاعات تخصصی و مطب پزشک</p>
+            <div className="space-y-4 border-t border-slate-100 pt-4">
+              <p className="text-sm font-bold text-slate-700">
+                اطلاعات تخصصی و مطب پزشک
+              </p>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
                   <CreditCard className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
                   <input
                     name="medicalCouncilNumber"
                     required
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={formData.medicalCouncilNumber}
                     onChange={handleChange}
-                    placeholder="شماره نظام پزشکی"
-                    className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none"
+                    placeholder="شماره نظام پزشکی *"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 outline-none focus:border-sky-500"
                   />
                 </div>
 
                 <div className="relative">
                   <DollarSign className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
                   <input
                     type="number"
                     name="visitFee"
                     required
+                    min="1"
+                    inputMode="numeric"
                     value={formData.visitFee}
                     onChange={handleChange}
                     placeholder="مبلغ ویزیت (تومان)"
-                    className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-left"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 text-left outline-none focus:border-sky-500"
                     dir="ltr"
                   />
                 </div>
@@ -296,12 +437,18 @@ export default function Register() {
                 required
                 value={formData.specialtyId}
                 onChange={handleChange}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none"
+                disabled={specialtiesLoading}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-sky-500 disabled:opacity-60"
               >
-                <option value="">{specialtiesLoading ? "در حال دریافت تخصص‌ها..." : "انتخاب تخصص پزشکی"}</option>
-                {specialties.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
+                <option value="">
+                  {specialtiesLoading
+                    ? "در حال دریافت تخصص‌ها..."
+                    : "انتخاب تخصص پزشکی"}
+                </option>
+
+                {specialties.map((specialty) => (
+                  <option key={specialty.id} value={specialty.id}>
+                    {specialty.name}
                   </option>
                 ))}
               </select>
@@ -312,27 +459,31 @@ export default function Register() {
                   required
                   value={formData.province}
                   onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-sky-500"
                 >
                   <option value="">استان</option>
-                  {Object.keys(PROVINCES_AND_CITIES).map((p) => (
-                    <option key={p} value={p}>
-                      {p}
+
+                  {Object.keys(PROVINCES_AND_CITIES).map((province) => (
+                    <option key={province} value={province}>
+                      {province}
                     </option>
                   ))}
                 </select>
+
                 <select
                   name="city"
                   required
                   value={formData.city}
                   onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none"
+                  disabled={!formData.province}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-sky-500 disabled:opacity-60"
                 >
                   <option value="">شهر</option>
+
                   {formData.province &&
-                    PROVINCES_AND_CITIES[formData.province]?.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    PROVINCES_AND_CITIES[formData.province]?.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
                       </option>
                     ))}
                 </select>
@@ -340,23 +491,28 @@ export default function Register() {
 
               <div className="relative">
                 <Building2 className="absolute right-3.5 top-3.5 h-5 w-5 text-slate-400" />
+
                 <input
                   name="address"
                   required
+                  autoComplete="street-address"
                   value={formData.address}
                   onChange={handleChange}
                   placeholder="آدرس دقیق مطب"
-                  className="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-11 outline-none focus:border-sky-500"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-500 mb-2 block">شیفت کاری</label>
+                <label className="mb-2 block text-xs font-bold text-slate-500">
+                  شیفت کاری
+                </label>
+
                 <select
                   name="workShift"
                   value={formData.workShift}
                   onChange={handleChange}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none mb-3"
+                  className="mb-3 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-sky-500"
                 >
                   {WORK_SHIFTS.map((shift) => (
                     <option key={shift.id} value={shift.id}>
@@ -367,17 +523,20 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-500 mb-2 block">روزهای حضور در مطب</label>
+                <label className="mb-2 block text-xs font-bold text-slate-500">
+                  روزهای حضور در مطب
+                </label>
+
                 <div className="flex flex-wrap gap-2">
                   {WORK_DAYS.map((day) => (
                     <button
                       key={day.id}
                       type="button"
                       onClick={() => handleDayToggle(day.id)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                      className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${
                         formData.workDays.includes(day.id)
-                          ? "bg-sky-50 border-sky-300 text-sky-600"
-                          : "bg-slate-50 border-slate-200 text-slate-500"
+                          ? "border-sky-300 bg-sky-50 text-sky-600"
+                          : "border-slate-200 bg-slate-50 text-slate-500"
                       }`}
                     >
                       {day.label}
@@ -391,13 +550,13 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-sky-500 text-white font-extrabold rounded-2xl hover:bg-sky-600 transition disabled:opacity-50 mt-6"
+            className="mt-6 w-full rounded-2xl bg-sky-500 py-4 font-extrabold text-white transition hover:bg-sky-600 disabled:opacity-50"
           >
-            {loading ? "در حال ارسال کد..." : "دریافت کد تایید"}
+            {loading ? "در حال ارسال کد..." : "دریافت کد تأیید"}
           </button>
         </form>
 
-        <p className="text-center mt-6 text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-500">
           قبلاً ثبت‌نام کرده‌اید؟{" "}
           <Link to="/login" className="font-bold text-sky-500">
             ورود

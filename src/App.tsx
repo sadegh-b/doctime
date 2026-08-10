@@ -1,5 +1,3 @@
-// Path: src/App.tsx
-
 import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Header from "./components/ui/Header";
@@ -33,6 +31,7 @@ const DiabetesArticlePage = lazy(
 // Patient pages
 const PatientProfile = lazy(() => import("./pages/Patient/PatientProfile"));
 const MyAppointments = lazy(() => import("./pages/Patient/MyAppointments"));
+const Wallet = lazy(() => import("./pages/Patient/Wallet")); // اضافه شده
 
 // Doctor pages
 const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
@@ -105,6 +104,7 @@ export default function App() {
             {/* Direct Patient Routes */}
             <Route path="/patient-profile" element={<PatientProfile />} />
             <Route path="/my-appointments" element={<MyAppointments />} />
+            <Route path="/wallet" element={<Wallet />} /> {/* روت کیف پول ثبت شد */}
 
             {/* Direct Doctor Routes */}
             <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
@@ -119,7 +119,7 @@ export default function App() {
             <Route path="/doctor-profile" element={<DoctorAdminProfile />} />
             <Route path="/doctor-schedule" element={<DoctorSchedule />} />
 
-            {/* Patient Redirects & Aliases (پشتیبانی از ساختارهای مختلف مسیر) */}
+            {/* Patient Redirects & Aliases */}
             <Route
               path="/patient/dashboard"
               element={<Navigate to="/patient-profile" replace />}
@@ -135,6 +135,10 @@ export default function App() {
             <Route
               path="/patient/appointments"
               element={<Navigate to="/my-appointments" replace />}
+            />
+            <Route
+              path="/patient/wallet"
+              element={<Navigate to="/wallet" replace />}
             />
 
             {/* Doctor Redirects & Aliases */}

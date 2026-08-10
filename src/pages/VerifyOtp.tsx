@@ -1,8 +1,32 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { register, requestOtp } from "../services/auth";
-import type { RegisterPayload, AuthUser } from "../services/auth";
+import {
+  register,
+  requestOtp,
+  toEnglishDigits,
+} from "../services/auth";
+import type { RegisterPayload } from "../services/auth";
+
+type StoredRegisterPayload = RegisterPayload & {
+  nationalId?: string;
+  medicalCouncilNumber?: string;
+};
+
+function readSessionJson<T>(key: string): T | null {
+  const rawValue = sessionStorage.getItem(key);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawValue) as T;
+  } catch {
+    sessionStorage.removeItem(key);
+    return null;
+  }
+}
 
 export default function VerifyOtp() {
   const location = useLocation();
@@ -16,121 +40,258 @@ export default function VerifyOtp() {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const rawUserData = location.state?.userData;
-  const storedPayload = sessionStorage.getItem("pending_register_payload");
+  /*
+    Register.tsx در نسخه فعلی کل اطلاعات، شامل جزئیات پزشک،
+    را در pending_register_payload ذخیره می‌کند.
+  */
+  const storedPayload = readSessionJson<StoredRegisterPayload>(
+    "pending_register_payload"
+  );
 
-  const userData: RegisterPayload | null =
-    rawUserData || (storedPayload ? JSON.parse(storedPayload) : null);
+  /*
+    این fallback فقط برای سازگاری با نسخه‌های قبلی پروژه است.
+    در Register.tsx فعلی، pending_doctor_details ساخته نمی‌شود.
+  */
+  const storedDoctorDetails = readSessionJson<Partial<RegisterPayload>>(
+    "pending_doctor_details"
+  );
+
+  const userData: StoredRegisterPayload | null =
+    storedPayload ??
+    (location.state?.userData as StoredRegisterPayload | undefined) ??
+    null;
 
   useEffect(() => {
     if (!userData) {
-      setError("اطلاعات ثبت نام یافت نشد. لطفا دوباره تلاش کنید.");
+      setError("اطلاعات ثبت‌نام یافت نشد. لطفاً دوباره فرم را تکمیل کنید.");
     }
   }, [userData]);
 
   useEffect(() => {
-    if (timer > 0) {
-      const interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
-      return () => clearInterval(interval);
+    if (timer <= 0) {
+      return;
     }
+
+    const interval = window.setInterval(() => {
+      setTimer((previousTimer) => previousTimer - 1);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
   }, [timer]);
 
   const handleOtpChange = (index: number, value: string) => {
-    const cleanVal = value.replace(/[^\d]/g, "");
-    if (!cleanVal) return;
+    const normalizedValue = toEnglishDigits(value);
+    const cleanValue = normalizedValue.replace(/[^\d]/g, "");
 
-    const newOtp = [...otp];
-    newOtp[index] = cleanVal.substring(cleanVal.length - 1);
-    setOtp(newOtp);
+    if (!cleanValue) {
+      const nextOtp = [...otp];
+      nextOtp[index] = "";
+      setOtp(nextOtp);
+      return;
+    }
 
-    if (index < 5 && inputRefs.current[index + 1]) {
+    const nextOtp = [...otp];
+    nextOtp[index] = cleanValue.slice(-1);
+    setOtp(nextOtp);
+
+    if (index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (
     index: number,
-    e: React.KeyboardEvent<HTMLInputElement>
+    event: React.KeyboardEvent<HTMLInputElement>
   ) => {
-    if (e.key === "Backspace") {
-      if (!otp[index] && index > 0 && inputRefs.current[index - 1]) {
-        const newOtp = [...otp];
-        newOtp[index - 1] = "";
-        setOtp(newOtp);
-        inputRefs.current[index - 1]?.focus();
-      } else {
-        const newOtp = [...otp];
-        newOtp[index] = "";
-        setOtp(newOtp);
-      }
+    if (event.key !== "Backspace") {
+      return;
     }
+
+    if (!otp[index] && index > 0) {
+      const nextOtp = [...otp];
+      nextOtp[index - 1] = "";
+      setOtp(nextOtp);
+      inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    const nextOtp = [...otp];
+    nextOtp[index] = "";
+    setOtp(nextOtp);
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData
-      .getData("text")
+  const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+
+    const pastedData = toEnglishDigits(event.clipboardData.getData("text"))
       .replace(/[^\d]/g, "")
-      .substring(0, 6);
-    if (pastedData.length === 6) {
-      setOtp(pastedData.split(""));
-      inputRefs.current[5]?.focus();
+      .slice(0, 6);
+
+    if (!pastedData) {
+      return;
     }
+
+    const nextOtp = Array(6).fill("");
+
+    pastedData.split("").forEach((digit, index) => {
+      nextOtp[index] = digit;
+    });
+
+    setOtp(nextOtp);
+
+    const focusIndex = Math.min(pastedData.length, 5);
+    inputRefs.current[focusIndex]?.focus();
   };
 
   const handleResendOtp = async () => {
-    if (!userData) return;
+    if (!userData?.phone) {
+      setError("شماره موبایل برای ارسال مجدد کد در دسترس نیست.");
+      return;
+    }
 
     try {
+      setError(null);
       await requestOtp(userData.phone);
       setTimer(120);
-      setError(null);
-    } catch {
-      setError("ارسال مجدد کد انجام نشد.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "ارسال مجدد کد انجام نشد."
+      );
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     setError(null);
     setValidationErrors([]);
 
     const otpCode = otp.join("");
 
     if (otpCode.length !== 6) {
-      setError("کد تایید باید ۶ رقمی باشد.");
+      setError("کد تأیید باید دقیقاً ۶ رقم باشد.");
       return;
     }
 
     if (!userData) {
-      setError("اطلاعات ثبت نام پیدا نشد.");
+      setError("اطلاعات ثبت‌نام پیدا نشد. لطفاً دوباره ثبت‌نام کنید.");
       return;
     }
 
-    const storedDoctorDetails = sessionStorage.getItem("pending_doctor_details");
-    const doctorDetails = storedDoctorDetails ? JSON.parse(storedDoctorDetails) : {};
+    /*
+      اولویت داده‌ها:
+      1) pending_register_payload: منبع اصلی در Register.tsx فعلی
+      2) pending_doctor_details: فقط fallback برای نسخه‌های قدیمی
+      3) camelCase: فقط برای سازگاری با داده‌های قدیمی sessionStorage
+    */
+    const nationalId = (
+      userData.national_id ??
+      userData.nationalId ??
+      ""
+    ).trim();
+
+    const medicalCouncilNumber = (
+      userData.medical_council_number ??
+      userData.medicalCouncilNumber ??
+      storedDoctorDetails?.medical_council_number ??
+      ""
+    ).trim();
 
     const cleanPayload: RegisterPayload = {
-      name: userData.name.trim(),
+      name: (userData.name ?? "").trim(),
       phone: userData.phone,
       password: userData.password,
-      national_id: userData.national_id,
-      email: userData.email || null,
       role: userData.role,
-      ...(userData.role === "doctor" ? doctorDetails : {}),
+      email: userData.email?.trim() || null,
+      national_id: nationalId || undefined,
+
+      ...(userData.role === "doctor"
+        ? {
+            medical_council_number: medicalCouncilNumber || undefined,
+            specialty_id:
+              userData.specialty_id ??
+              storedDoctorDetails?.specialty_id,
+            province:
+              userData.province ??
+              storedDoctorDetails?.province,
+            city: userData.city ?? storedDoctorDetails?.city,
+            address: userData.address ?? storedDoctorDetails?.address,
+            consultation_fee:
+              userData.consultation_fee ??
+              storedDoctorDetails?.consultation_fee ??
+              0,
+            work_shift:
+              userData.work_shift ??
+              storedDoctorDetails?.work_shift,
+            work_days:
+              userData.work_days ??
+              storedDoctorDetails?.work_days ??
+              [],
+            morning_start:
+              userData.morning_start ??
+              storedDoctorDetails?.morning_start,
+            morning_end:
+              userData.morning_end ??
+              storedDoctorDetails?.morning_end,
+            afternoon_start:
+              userData.afternoon_start ??
+              storedDoctorDetails?.afternoon_start,
+            afternoon_end:
+              userData.afternoon_end ??
+              storedDoctorDetails?.afternoon_end,
+            schedule_start_date:
+              userData.schedule_start_date ??
+              storedDoctorDetails?.schedule_start_date,
+          }
+        : {}),
     };
+
+    /*
+      اعتبارسنجی کلاینت:
+      نباید اجازه دهیم درخواست ناقص به FastAPI برسد و 422 تولید کند.
+    */
+    if (!cleanPayload.name) {
+      setError("نام و نام خانوادگی الزامی است.");
+      return;
+    }
+
+    if (!cleanPayload.phone) {
+      setError("شماره موبایل یافت نشد.");
+      return;
+    }
+
+    if (!cleanPayload.password) {
+      setError("رمز عبور یافت نشد. لطفاً ثبت‌نام را از ابتدا انجام دهید.");
+      return;
+    }
+
+    if (cleanPayload.role === "doctor") {
+      if (!cleanPayload.national_id) {
+        setError("کد ملی برای ثبت‌نام پزشک الزامی است.");
+        return;
+      }
+
+      if (!cleanPayload.medical_council_number) {
+        setError("شماره نظام پزشکی برای ثبت‌نام پزشک الزامی است.");
+        return;
+      }
+
+      if (!cleanPayload.specialty_id) {
+        setError("تخصص پزشک در اطلاعات ثبت‌نام یافت نشد.");
+        return;
+      }
+    }
+
+    /*
+      لاگ موقت برای تست:
+      پس از موفقیت نهایی ثبت‌نام، می‌توانی این console.log را حذف کنی.
+    */
+    console.log("FINAL REGISTER PAYLOAD:", cleanPayload);
 
     setLoading(true);
 
     try {
-      const registerRes = await register(cleanPayload, otpCode);
-
-      const receivedToken =
-        registerRes.token?.access_token ?? registerRes.access_token;
-
-      if (!receivedToken) {
-        console.warn("REGISTER: توکنی در پاسخ سرور یافت نشد.", registerRes);
-      }
+      await register(cleanPayload, otpCode);
 
       sessionStorage.removeItem("pending_register_payload");
       sessionStorage.removeItem("pending_doctor_details");
@@ -138,19 +299,23 @@ export default function VerifyOtp() {
       navigate(
         cleanPayload.role === "doctor"
           ? "/doctor/dashboard"
-          : "/patient/dashboard"
+          : "/patient/dashboard",
+        { replace: true }
       );
     } catch (err: any) {
       console.error("REGISTER ERROR:", err);
 
+      /*
+        auth.ts خطای Axios را به Error معمولی تبدیل می‌کند.
+        بنابراین err.message منبع اصلی پیام خطاست.
+      */
       const detail = err?.response?.data?.detail;
 
       if (Array.isArray(detail)) {
         setValidationErrors(detail);
-      } else if (detail) {
-        setError(detail);
+        setError(detail[0]?.msg || "اطلاعات ارسالی نامعتبر است.");
       } else {
-        setError(err.message || "خطا در تکمیل ثبت نام");
+        setError(err?.message || "خطا در تکمیل ثبت‌نام.");
       }
     } finally {
       setLoading(false);
@@ -158,9 +323,10 @@ export default function VerifyOtp() {
   };
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
   };
 
   return (
@@ -173,36 +339,38 @@ export default function VerifyOtp() {
           <button
             type="button"
             onClick={() => navigate("/register")}
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 transition flex items-center gap-1"
+            className="flex items-center gap-1 text-xs font-bold text-slate-400 transition hover:text-slate-600"
           >
             ← بازگشت به ثبت‌نام
           </button>
         </div>
 
-        <div className="text-center mb-8">
+        <div className="mb-8 text-center">
           <h1 className="text-xl font-extrabold text-slate-800">
-            تایید شماره موبایل
+            تأیید شماره موبایل
           </h1>
-          <p className="text-xs text-slate-500 mt-2">
-            کد ۶ رقمی ارسال شده به شماره{" "}
-            <span className="font-bold text-slate-700">{userData?.phone}</span>{" "}
+
+          <p className="mt-2 text-xs text-slate-500">
+            کد ۶ رقمی ارسال‌شده به شماره{" "}
+            <span className="font-bold text-slate-700">
+              {userData?.phone}
+            </span>{" "}
             را وارد کنید.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-xl bg-rose-50 p-4 text-xs font-semibold text-rose-600">
+          <div className="mb-4 rounded-xl border border-rose-100 bg-rose-50 p-4 text-xs font-semibold text-rose-600">
             {error}
           </div>
         )}
 
         {validationErrors.length > 0 && (
           <div className="mb-4 rounded-xl bg-rose-50 p-4 text-xs text-rose-600">
-            <p className="font-bold mb-1">
-              خطای اعتبارسنجی فیلدها در سرور (422)
-            </p>
+            <p className="mb-1 font-bold">جزئیات خطای اعتبارسنجی سرور:</p>
+
             <pre
-              className="text-[10px] overflow-auto max-h-40 p-2 bg-rose-100 rounded-lg text-left"
+              className="max-h-40 overflow-auto rounded-lg bg-rose-100 p-2 text-left text-[10px]"
               dir="ltr"
             >
               {JSON.stringify(validationErrors, null, 2)}
@@ -215,25 +383,31 @@ export default function VerifyOtp() {
             {otp.map((digit, index) => (
               <input
                 key={index}
-                ref={(el) => (inputRefs.current[index] = el)}
+                ref={(element) => {
+                  inputRefs.current[index] = element;
+                }}
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={1}
                 value={digit}
-                onChange={(e) => handleOtpChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
+                onChange={(event) => handleOtpChange(index, event.target.value)}
+                onKeyDown={(event) => handleKeyDown(index, event)}
                 onPaste={index === 0 ? handlePaste : undefined}
-                className="w-12 h-12 text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 focus:bg-white outline-none transition"
+                aria-label={`رقم ${index + 1} کد تأیید`}
+                className="h-12 w-12 rounded-xl border border-slate-200 bg-slate-50 text-center text-lg font-bold outline-none transition focus:border-sky-500 focus:bg-white"
               />
             ))}
           </div>
 
-          <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
             <span>زمان باقی‌مانده: {formatTime(timer)}</span>
+
             <button
               type="button"
               disabled={timer > 0}
               onClick={handleResendOtp}
-              className="text-sky-500 hover:text-sky-600 disabled:text-slate-400 disabled:no-underline font-bold transition"
+              className="font-bold text-sky-500 transition hover:text-sky-600 disabled:text-slate-400"
             >
               ارسال مجدد کد
             </button>
@@ -242,9 +416,9 @@ export default function VerifyOtp() {
           <button
             type="submit"
             disabled={loading || !userData}
-            className="w-full py-3.5 bg-sky-500 text-white text-sm font-extrabold rounded-2xl hover:bg-sky-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-2xl bg-sky-500 py-3.5 text-sm font-extrabold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "در حال تایید..." : "تایید و تکمیل ثبت‌نام"}
+            {loading ? "در حال تأیید..." : "تأیید و تکمیل ثبت‌نام"}
           </button>
         </form>
       </div>
