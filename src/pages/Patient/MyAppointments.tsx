@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -10,6 +10,8 @@ import {
   RefreshCw,
   UserRound,
   XCircle,
+  Search,
+  Filter,
 } from "lucide-react";
 
 import {
@@ -28,24 +30,16 @@ function toPersianDigits(value: string | number): string {
 }
 
 function extractDate(value?: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-
+  if (!value) return null;
   const match = value.match(/(\d{4})-(\d{2})-(\d{2})/);
   return match?.[0] ?? null;
 }
 
 function extractTime(value?: string | null): string {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
 
   const match = value.match(/(\d{1,2}):(\d{2})/);
-
-  if (!match) {
-    return "";
-  }
+  if (!match) return "";
 
   const hour = Number(match[1]);
   const minute = Number(match[2]);
@@ -71,10 +65,7 @@ function addMinutesToTime(
   minutes = DEFAULT_APPOINTMENT_DURATION_MINUTES
 ): string {
   const time = extractTime(value);
-
-  if (!time) {
-    return "";
-  }
+  if (!time) return "";
 
   const [hour, minute] = time.split(":").map(Number);
   const totalMinutes = hour * 60 + minute + minutes;
@@ -93,19 +84,11 @@ function addMinutesToTime(
 function formatDate(value?: string | null): string {
   const date = extractDate(value);
 
-  if (!date) {
-    return "تاریخ نامشخص";
-  }
+  if (!date) return "تاریخ نامشخص";
 
   const [year, month, day] = date.split("-").map(Number);
 
-  if (
-    !year ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > 31
-  ) {
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) {
     return "تاریخ نامشخص";
   }
 
@@ -134,9 +117,7 @@ function formatAppointmentTime(
 ): string {
   const start = extractTime(startTime);
 
-  if (!start) {
-    return "زمان نامشخص";
-  }
+  if (!start) return "زمان نامشخص";
 
   const end =
     extractTime(endTime) ||
@@ -145,9 +126,7 @@ function formatAppointmentTime(
       DEFAULT_APPOINTMENT_DURATION_MINUTES
     );
 
-  if (!end) {
-    return toPersianDigits(start);
-  }
+  if (!end) return toPersianDigits(start);
 
   return `${toPersianDigits(start)} تا ${toPersianDigits(end)}`;
 }
@@ -195,11 +174,29 @@ function canCancelAppointment(
   );
 }
 
+function isFutureAppointment(appointment: Appointment): boolean {
+  const dateValue = extractDate(appointment.date);
+  const timeValue = extractTime(appointment.start_time);
+
+  if (!dateValue) return false;
+
+  const dateTimeString = `${dateValue}T${timeValue || "00:00"}:00`;
+  const appointmentDate = new Date(dateTimeString);
+
+  if (Number.isNaN(appointmentDate.getTime())) return false;
+
+  return appointmentDate.getTime() >= Date.now();
+}
+
 export default function MyAppointments() {
   const queryClient = useQueryClient();
 
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [onlyCancelable, setOnlyCancelable] = useState(false);
+  const [onlyFuture, setOnlyFuture] = useState(false);
 
   const {
     data: appointments = [],
@@ -247,6 +244,41 @@ export default function MyAppointments() {
     }
   }
 
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((appointment) => {
+      const doctorName = appointment.doctor_name || "";
+      const specialty = appointment.doctor_specialty || "";
+
+      const matchesSearch =
+        !searchTerm ||
+        doctorName.includes(searchTerm) ||
+        specialty.includes(searchTerm);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        appointment.status === statusFilter;
+
+      const matchesCancelable =
+        !onlyCancelable || canCancelAppointment(appointment);
+
+      const matchesFuture =
+        !onlyFuture || isFutureAppointment(appointment);
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesCancelable &&
+        matchesFuture
+      );
+    });
+  }, [
+    appointments,
+    searchTerm,
+    statusFilter,
+    onlyCancelable,
+    onlyFuture,
+  ]);
+
   if (isLoading) {
     return (
       <div
@@ -280,35 +312,95 @@ export default function MyAppointments() {
   }
 
   return (
-    <main
-      className="min-h-screen bg-slate-50 p-5"
-      dir="rtl"
-    >
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-6 shadow-sm">
-          <div>
-            <h1 className="text-xl font-black text-slate-900">
-              نوبت‌های من
-            </h1>
+    <main className="min-h-screen bg-slate-50 p-5" dir="rtl">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-6 rounded-3xl bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-black text-slate-900">
+                نوبت‌های من
+              </h1>
+              <p className="mt-2 text-sm text-slate-500">
+                لیست نوبت‌های ثبت‌شده و مدیریت وضعیت آن‌ها
+              </p>
+            </div>
 
-            <p className="mt-2 text-sm text-slate-500">
-              لیست نوبت‌های ثبت‌شده
-            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-2 rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-black text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                size={16}
+                className={isFetching ? "animate-spin" : ""}
+              />
+              {isFetching ? "در حال بروزرسانی..." : "بروزرسانی"}
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center gap-2 rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-black text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw
-              size={16}
-              className={isFetching ? "animate-spin" : ""}
-            />
+          {/* Filters */}
+          <div className="mt-6 grid gap-4 lg:grid-cols-4">
+            <div className="relative lg:col-span-2">
+              <Search
+                size={18}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="جستجو بر اساس نام پزشک یا تخصص"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pr-11 pl-4 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-500 focus:bg-white"
+              />
+            </div>
 
-            {isFetching ? "در حال بروزرسانی..." : "بروزرسانی"}
-          </button>
+            <div className="relative">
+              <Filter
+                size={18}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 py-3 pr-11 pl-4 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-500 focus:bg-white"
+              >
+                <option value="all">همه وضعیت‌ها</option>
+                <option value="reserved">رزرو شده</option>
+                <option value="booked">بوک شده</option>
+                <option value="confirmed">تایید شده</option>
+                <option value="pending">در انتظار</option>
+                <option value="completed">انجام شده</option>
+                <option value="cancelled">لغو شده</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyCancelable}
+                  onChange={(e) =>
+                    setOnlyCancelable(e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                فقط قابل لغوها
+              </label>
+
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyFuture}
+                  onChange={(e) =>
+                    setOnlyFuture(e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                فقط نوبت‌های آینده
+              </label>
+            </div>
+          </div>
         </header>
 
         {errorMessage && (
@@ -320,13 +412,13 @@ export default function MyAppointments() {
           </div>
         )}
 
-        {appointments.length === 0 ? (
+        {filteredAppointments.length === 0 ? (
           <div className="rounded-3xl bg-white p-10 text-center font-black text-slate-700 shadow-sm">
-            هنوز نوبتی ثبت نکرده‌اید
+            موردی با فیلترهای انتخاب‌شده پیدا نشد
           </div>
         ) : (
           <div className="space-y-5">
-            {appointments.map((appointment) => {
+            {filteredAppointments.map((appointment) => {
               const canCancel =
                 canCancelAppointment(appointment);
 
@@ -343,7 +435,6 @@ export default function MyAppointments() {
                     <div>
                       <div className="flex items-center gap-2 text-lg font-black text-slate-900">
                         <UserRound size={18} />
-
                         <span>
                           {appointment.doctor_name ||
                             "پزشک نامشخص"}
@@ -371,11 +462,9 @@ export default function MyAppointments() {
                         size={18}
                         className="text-cyan-700"
                       />
-
                       <p className="mt-2 text-sm text-slate-500">
                         تاریخ نوبت
                       </p>
-
                       <p className="mt-1 font-black text-slate-900">
                         {formatDate(appointment.date)}
                       </p>
@@ -386,11 +475,9 @@ export default function MyAppointments() {
                         size={18}
                         className="text-cyan-700"
                       />
-
                       <p className="mt-2 text-sm text-slate-500">
                         ساعت نوبت
                       </p>
-
                       <p className="mt-1 font-black text-slate-900">
                         {formatAppointmentTime(
                           appointment.start_time,
@@ -405,7 +492,6 @@ export default function MyAppointments() {
                       <p className="text-sm text-slate-500">
                         توضیحات
                       </p>
-
                       <p className="mt-1 whitespace-pre-wrap font-medium text-slate-800">
                         {appointment.notes}
                       </p>
@@ -422,7 +508,6 @@ export default function MyAppointments() {
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 py-3 font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <XCircle size={18} />
-
                       {isCancellingThisAppointment
                         ? "در حال لغو..."
                         : "لغو نوبت"}

@@ -2,37 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
-/* استایل‌های پایه ساختار اپلیکیشن */
-html,
-body,
-#root {
-  width: 100%;
-  min-height: 100%;
+@layer base {
+  :root {
+    --brand-primary: #2563eb;
+    --brand-secondary: #4f46e5;
+    --bg-main: #f8fafc;
+  }
+
+  html, body, #root {
+    width: 100%;
+    min-height: 100vh;
+    scroll-behavior: smooth; /* اسکرول نرم بین بخش‌ها */
+  }
+
+  body {
+    margin: 0;
+    direction: rtl;
+    /* فونت Vazirmatn برای وب عالی است، فونت‌های سیستمی را به عنوان بک‌آپ گذاشتیم */
+    font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-main);
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* جلوگیری از پرش محتوا هنگام باز شدن مودال */
+    scrollbar-gutter: stable;
+  }
 }
 
-body {
-  margin: 0;
-  /* اضافه کردن جهت راست‌چین به صورت پیش‌فرض */
-  direction: rtl;
-  /* اولویت دادن به فونت‌های فارسی استاندارد و مدرن سیستم */
-  font-family: Vazirmatn, "B Yekan", "Shabnam", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #f8fafc;
-  color: #0f172a;
-  /* بهبود رندر فونت روی صفحات نمایشگر */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer components {
+  /* استایل شیشه‌ای (Glassmorphism) برای کارت‌ها */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+
+  /* دکمه‌های اختصاصی داک‌تایم */
+  .btn-primary {
+    @apply bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold
+           transition-all duration-300 hover:bg-blue-700 hover:shadow-lg
+           active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* ورودی‌های متنی زیباتر */
+  .input-field {
+    @apply w-full rounded-xl border border-slate-200 bg-white p-3
+           transition-all duration-200 focus:border-blue-500
+           focus:ring-2 focus:ring-blue-500/20 outline-none;
+  }
 }
 
-/* بهبود رندر المان‌ها */
-* {
-  box-sizing: border-box;
+/* انیمیشن برای بارگذاری‌ها (Skeleton Screen) */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
 }
 
-/* پنهان کردن اسکرول‌بار افقی در بخش تقویم نوبت‌دهی */
+.animate-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* پنهان کردن اسکرول‌بار بدون از دست دادن قابلیت اسکرول */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+
+/* استایل سفارشی اسکرول‌بار اصلی سایت */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

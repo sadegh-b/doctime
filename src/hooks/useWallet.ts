@@ -1,32 +1,79 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWalletBalance, getWalletTransactions, depositWallet } from "../api/walletService";
-import type { WalletData, Transaction } from "../types/wallet";
+// Path: frontend/src/hooks/useWallet.ts
 
-export function useWallet() {
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getDoctorWalletBalance,
+  getWalletBalance,
+  getWalletTransactions,
+  initiatePayment,
+  topupDoctorWallet,
+} from "../api/walletService";
+import type { Transaction, WalletData } from "../types/wallet";
+
+export type WalletRole = "patient" | "doctor";
+
+/** دریافت موجودی کیف پول بر اساس نقش */
+export function useWallet(role?: WalletRole) {
   return useQuery<WalletData, Error>({
-    queryKey: ["wallet-balance"],
-    queryFn: getWalletBalance,
-    staleTime: 10 * 1000, // ۱۰ ثانیه معتبر بودن داده جهت جلوگیری از درخواست‌های مکرر
+    queryKey: ["wallet-balance", role],
+    queryFn: () => {
+      if (role === "doctor") {
+        return getDoctorWalletBalance();
+      }
+      return getWalletBalance();
+    },
+    enabled: Boolean(role),
+    staleTime: 5000, // زمان بیات شدن داده به ۵ ثانیه کاهش یافت تا حساسیت تغییرات بیشتر شود
   });
 }
 
-export function useWalletTransactions() {
+/** دریافت تراکنش‌های بیمار - فقط وقتی نقش بیمار باشد */
+export function usePatientWalletTransactions(enabled: boolean = true) {
   return useQuery<Transaction[], Error>({
-    queryKey: ["wallet-transactions"],
+    queryKey: ["wallet-transactions", "patient"],
     queryFn: getWalletTransactions,
-    staleTime: 30 * 1000,
+    enabled,
+    staleTime: 5000,
   });
 }
 
+/** برای سازگاری با کدهای قدیمی */
+export const useWalletTransactions = usePatientWalletTransactions;
+
+/** شروع پرداخت بیمار و ابطال خودکار کش به محض موفقیت */
 export function useDepositWallet() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (amount: number) => depositWallet(amount),
-    onSuccess: () => {
-      // بعد از شارژ موفق، اطلاعات موجودی و تراکنش‌ها بروزرسانی شوند
-      queryClient.invalidateQueries({ queryKey: ["wallet-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["wallet-transactions"] });
+    mutationFn: async (amount: number) => {
+      return initiatePayment(amount);
+    },
+    onSuccess: (data) => {
+      console.log("Deposit mutation succeeded, invalidating queries...", data);
+      // تصحیح و اطمینان از پاک شدن کش هر دو بخش
+      queryClient.invalidateQueries({ queryKey: ["wallet-balance", "patient"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-transactions", "patient"] });
+    },
+  });
+}
+
+/** شارژ مستقیم کیف پول پزشک و ابطال خودکار کش */
+export function useTopupDoctorWallet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      amount,
+      referenceId,
+      description,
+    }: {
+      amount: number;
+      referenceId: string;
+      description: string;
+    }) => topupDoctorWallet(amount, referenceId, description),
+    onSuccess: (data) => {
+      console.log("Doctor topup succeeded, invalidating queries...", data);
+      queryClient.invalidateQueries({ queryKey: ["wallet-balance", "doctor"] });
     },
   });
 }

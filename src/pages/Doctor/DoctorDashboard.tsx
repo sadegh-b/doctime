@@ -10,6 +10,7 @@ import {
   XCircle,
   AlertCircle,
   ArrowLeft,
+  Wallet,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -220,6 +221,15 @@ export default function DoctorDashboard() {
               بروزرسانی
             </button>
 
+            {/* دکمه مستقیم کیف پول پزشک */}
+            <Link
+              to="/wallet"
+              className="flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-emerald-600"
+            >
+              <Wallet size={16} />
+              کیف پول من
+            </Link>
+
             <Link
               to="/doctor-appointments"
               className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-900 transition hover:bg-slate-100"
@@ -249,9 +259,7 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  رزرو شده
-                </div>
+                <div className="text-sm font-bold text-slate-500">رزرو شده</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.booked)}
                 </div>
@@ -265,9 +273,7 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  در انتظار
-                </div>
+                <div className="text-sm font-bold text-slate-500">در انتظار</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.pending)}
                 </div>
@@ -281,9 +287,7 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  انجام شده
-                </div>
+                <div className="text-sm font-bold text-slate-500">انجام شده</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.completed)}
                 </div>
@@ -297,9 +301,7 @@ export default function DoctorDashboard() {
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-500">
-                  لغو شده
-                </div>
+                <div className="text-sm font-bold text-slate-500">لغو شده</div>
                 <div className="mt-2 text-3xl font-black text-slate-900">
                   {toPersianDigits(stats.cancelled)}
                 </div>
@@ -423,9 +425,7 @@ export default function DoctorDashboard() {
                           </button>
 
                           <button
-                            onClick={() =>
-                              cancelMutation.mutate(appointment.id)
-                            }
+                            onClick={() => cancelMutation.mutate(appointment.id)}
                             disabled={isActionPending}
                             className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-50 py-3 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                           >
@@ -447,9 +447,7 @@ export default function DoctorDashboard() {
 
           <div className="space-y-6">
             <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-black text-slate-900">
-                اطلاعات پزشک
-              </h2>
+              <h2 className="text-xl font-black text-slate-900">اطلاعات پزشک</h2>
 
               <div className="mt-5 space-y-4">
                 <div className="rounded-2xl bg-slate-50 p-4">
@@ -481,6 +479,18 @@ export default function DoctorDashboard() {
               </h2>
 
               <div className="mt-5 grid gap-3">
+                {/* کارت جدید کیف پول */}
+                <Link
+                  to="/wallet"
+                  className="flex items-center justify-between rounded-2xl border border-emerald-200 px-4 py-4 text-sm font-black text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Wallet size={16} />
+                    کیف پول من
+                  </span>
+                  <ArrowLeft size={16} />
+                </Link>
+
                 <Link
                   to="/doctor-appointments"
                   className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-sm font-black text-slate-800 transition hover:border-cyan-400 hover:bg-cyan-50"
