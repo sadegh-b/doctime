@@ -1,6 +1,12 @@
+// مسیر فایل: src/pages/Login.tsx
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { login as apiLogin, getError, type LoginPayload } from "../services/auth";
+import {
+  login as apiLogin,
+  getError,
+  normalizePhone,
+  type LoginPayload,
+} from "../services/auth";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -15,15 +21,6 @@ export default function Login() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
-  const normalizeDigits = (value: string): string => {
-    const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
-    const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
-
-    return value
-      .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)))
-      .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)));
-  };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -34,7 +31,7 @@ export default function Login() {
     submittingRef.current = true;
     setError("");
 
-    const normalizedPhone = normalizeDigits(phone).replace(/\s+/g, "").trim();
+    const normalizedPhone = normalizePhone(phone);
 
     if (!normalizedPhone) {
       setError("وارد کردن شماره موبایل الزامی است.");
@@ -64,19 +61,22 @@ export default function Login() {
 
       const authData = await apiLogin(payload);
 
-      // پاسخ بک‌اند ممکن است توکن را داخل "token" برگرداند یا مستقیم در ریشه پاسخ
       const accessToken =
-        authData.token?.access_token ??
-        authData.access_token ??
-        "";
+        authData.token?.access_token ?? authData.access_token;
 
-      if (!accessToken) {
-        console.warn("Login: access_token در پاسخ سرور یافت نشد.", authData);
+      if (!accessToken || !authData.user) {
+        throw new Error("پاسخ ورود از سرور ناقص است.");
       }
 
       setAuthSession(authData.user, accessToken);
 
-      navigate("/", { replace: true });
+      // هدایت بر اساس نقش
+      const targetPath =
+        authData.user.role === "doctor"
+          ? "/doctor/dashboard"
+          : "/patient/dashboard";
+
+      navigate(targetPath, { replace: true });
     } catch (err: unknown) {
       setError(getError(err));
     } finally {

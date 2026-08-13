@@ -30,7 +30,7 @@ const DiabetesArticlePage = lazy(() => import("./pages/magazine/DiabetesArticleP
 const PatientProfile = lazy(() => import("./pages/Patient/PatientProfile"));
 const MyAppointments = lazy(() => import("./pages/Patient/MyAppointments"));
 const Wallet = lazy(() => import("./pages/Patient/Wallet"));
-const PaymentVerify = lazy(() => import("./pages/PaymentVerify")); // صفحه تایید پرداخت (باید بسازی)
+const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 
 // --- صفحات پزشک (Doctor Pages) ---
 const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
@@ -47,7 +47,7 @@ const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 function PageLoader() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center" dir="rtl">
-      <div className="text-center font-bold text-slate-500 animate-pulse">
+      <div className="animate-pulse text-center font-bold text-slate-500">
         در حال بارگذاری داک‌تایم...
       </div>
     </div>
@@ -72,9 +72,18 @@ export default function App() {
 
             {/* بخش مجله */}
             <Route path="/health-magazine" element={<HealthMagazinePage />} />
-            <Route path="/health-magazine/addiction-recovery" element={<AddictionArticlePage />} />
-            <Route path="/health-magazine/constipation" element={<ConstipationArticlePage />} />
-            <Route path="/health-magazine/diabetes" element={<DiabetesArticlePage />} />
+            <Route
+              path="/health-magazine/addiction-recovery"
+              element={<AddictionArticlePage />}
+            />
+            <Route
+              path="/health-magazine/constipation"
+              element={<ConstipationArticlePage />}
+            />
+            <Route
+              path="/health-magazine/diabetes"
+              element={<DiabetesArticlePage />}
+            />
 
             {/* بخش پزشکان */}
             <Route path="/doctors" element={<Doctors />} />
@@ -92,7 +101,7 @@ export default function App() {
             <Route path="/patient-profile" element={<PatientProfile />} />
             <Route path="/my-appointments" element={<MyAppointments />} />
             <Route path="/wallet" element={<Wallet />} />
-            <Route path="/wallet/verify" element={<PaymentVerify />} /> {/* روت تایید پرداخت */}
+            <Route path="/wallet/verify" element={<PaymentVerify />} />
 
             {/* روت‌های مستقیم پزشک */}
             <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
@@ -103,21 +112,51 @@ export default function App() {
 
             <Route path="/anamnesis" element={<AnamnesisForm />} />
 
-            {/* ریدایرکت‌های بیمار (برای سازگاری لینک‌ها) */}
-            <Route path="/patient/dashboard" element={<Navigate to="/patient-profile" replace />} />
-            <Route path="/patient-dashboard" element={<Navigate to="/patient-profile" replace />} />
-            <Route path="/patient/profile" element={<Navigate to="/patient-profile" replace />} />
-            <Route path="/patient/appointments" element={<Navigate to="/my-appointments" replace />} />
-            <Route path="/patient/wallet" element={<Navigate to="/wallet" replace />} />
-            <Route path="/patient/wallet/verify" element={<Navigate to="/wallet/verify" replace />} />
+            {/* ریدایرکت‌های بیمار */}
+            <Route
+              path="/patient/dashboard"
+              element={<Navigate to="/patient-profile" replace />}
+            />
+            <Route
+              path="/patient-dashboard"
+              element={<Navigate to="/patient-profile" replace />}
+            />
+            <Route
+              path="/patient/profile"
+              element={<Navigate to="/patient-profile" replace />}
+            />
+            <Route
+              path="/patient/appointments"
+              element={<Navigate to="/my-appointments" replace />}
+            />
+            <Route
+              path="/patient/wallet"
+              element={<Navigate to="/wallet" replace />}
+            />
+            <Route
+              path="/patient/wallet/verify"
+              element={<Navigate to="/wallet/verify" replace />}
+            />
 
             {/* ریدایرکت‌های پزشک */}
-            <Route path="/doctor/dashboard" element={<Navigate to="/doctor-dashboard" replace />} />
-            <Route path="/doctor/availability" element={<Navigate to="/doctor-availability" replace />} />
-            <Route path="/doctor/appointments" element={<Navigate to="/doctor-appointments" replace />} />
-            <Route path="/doctor/profile" element={<Navigate to="/doctor-profile" replace />} />
+            <Route
+              path="/doctor/dashboard"
+              element={<Navigate to="/doctor-dashboard" replace />}
+            />
+            <Route
+              path="/doctor/availability"
+              element={<Navigate to="/doctor-availability" replace />}
+            />
+            <Route
+              path="/doctor/appointments"
+              element={<Navigate to="/doctor-appointments" replace />}
+            />
+            <Route
+              path="/doctor/profile"
+              element={<Navigate to="/doctor-profile" replace />}
+            />
 
-            {/* صفحه ۴۰۴ */}
+            {/* صفحه 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

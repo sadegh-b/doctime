@@ -1,5 +1,4 @@
 // Path: frontend/src/hooks/useWallet.ts
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getDoctorWalletBalance,
@@ -7,6 +6,7 @@ import {
   getWalletTransactions,
   initiatePayment,
   topupDoctorWallet,
+  verifyPayment,
 } from "../api/walletService";
 import type { Transaction, WalletData } from "../types/wallet";
 
@@ -16,18 +16,14 @@ export type WalletRole = "patient" | "doctor";
 export function useWallet(role?: WalletRole) {
   return useQuery<WalletData, Error>({
     queryKey: ["wallet-balance", role],
-    queryFn: () => {
-      if (role === "doctor") {
-        return getDoctorWalletBalance();
-      }
-      return getWalletBalance();
-    },
+    queryFn: () =>
+      role === "doctor" ? getDoctorWalletBalance() : getWalletBalance(),
     enabled: Boolean(role),
-    staleTime: 5000, // زمان بیات شدن داده به ۵ ثانیه کاهش یافت تا حساسیت تغییرات بیشتر شود
+    staleTime: 5000,
   });
 }
 
-/** دریافت تراکنش‌های بیمار - فقط وقتی نقش بیمار باشد */
+/** تراکنش‌های بیمار */
 export function usePatientWalletTransactions(enabled: boolean = true) {
   return useQuery<Transaction[], Error>({
     queryKey: ["wallet-transactions", "patient"],
@@ -37,27 +33,37 @@ export function usePatientWalletTransactions(enabled: boolean = true) {
   });
 }
 
-/** برای سازگاری با کدهای قدیمی */
+/** سازگاری با کدهای قدیمی */
 export const useWalletTransactions = usePatientWalletTransactions;
 
-/** شروع پرداخت بیمار و ابطال خودکار کش به محض موفقیت */
+/**
+ * شروع پرداخت (فقط init) — اینجا کش را نباید ابطال کرد،
+ * چون هنوز شارژ واقعی انجام نشده است.
+ */
 export function useDepositWallet() {
+  return useMutation({
+    mutationFn: (amount: number) => initiatePayment(amount),
+  });
+}
+
+/**
+ * تایید پرداخت بعد از بازگشت از درگاه.
+ * درست اینجاست که کش کیف پول و تراکنش‌ها ابطال می‌شود.
+ */
+export function useVerifyPayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (amount: number) => {
-      return initiatePayment(amount);
-    },
-    onSuccess: (data) => {
-      console.log("Deposit mutation succeeded, invalidating queries...", data);
-      // تصحیح و اطمینان از پاک شدن کش هر دو بخش
+    mutationFn: ({ authority, status }: { authority: string; status: string }) =>
+      verifyPayment(authority, status),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet-balance", "patient"] });
       queryClient.invalidateQueries({ queryKey: ["wallet-transactions", "patient"] });
     },
   });
 }
 
-/** شارژ مستقیم کیف پول پزشک و ابطال خودکار کش */
+/** شارژ مستقیم کیف پول پزشک */
 export function useTopupDoctorWallet() {
   const queryClient = useQueryClient();
 
@@ -71,8 +77,7 @@ export function useTopupDoctorWallet() {
       referenceId: string;
       description: string;
     }) => topupDoctorWallet(amount, referenceId, description),
-    onSuccess: (data) => {
-      console.log("Doctor topup succeeded, invalidating queries...", data);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet-balance", "doctor"] });
     },
   });
