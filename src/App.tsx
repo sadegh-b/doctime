@@ -26,14 +26,12 @@ const ConstipationArticlePage = lazy(() => import("./pages/magazine/Constipation
 const DiabetesArticlePage = lazy(() => import("./pages/magazine/DiabetesArticlePage"));
 
 // --- صفحات بیمار ---
-// توجه: صادق، مطمئن شو نام فولدر Patient و فایل Wallet دقیقاً همین باشند (P و W بزرگ)
 const PatientProfile = lazy(() => import("./pages/Patient/PatientProfile"));
 const MyAppointments = lazy(() => import("./pages/Patient/MyAppointments"));
-const Wallet = lazy(() => import("./pages/Patient/Wallet"));
+const Wallet = lazy(() => import("./pages/Patient/wallet"));
 const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 
 // --- صفحات پزشک ---
-// توجه: صادق، چک کن نام فولدر Doctor و فایل‌های Dashboard و غیره دقیقاً Case-match باشند
 const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
 const DoctorAvailability = lazy(() => import("./pages/Doctor/DoctorAvailability"));
 const DoctorAppointments = lazy(() => import("./pages/Doctor/DoctorAppointments"));
@@ -98,7 +96,6 @@ export default function App() {
 
             <Route path="/anamnesis" element={<AnamnesisForm />} />
 
-            {/* ریدایرکت‌های یکپارچه */}
             <Route path="/patient/*" element={<Navigate to="/patient-profile" replace />} />
             <Route path="/doctor/*" element={<Navigate to="/doctor-dashboard" replace />} />
 
